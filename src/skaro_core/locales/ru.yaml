@@ -1,0 +1,87 @@
+cli:
+  init:
+    success: "Skaro инициализирован в {path}"
+    already_exists: "Skaro уже инициализирован в этом проекте"
+    git_detected: "Обнаружен Git-репозиторий. .skaro/ будет отслеживаться."
+    open_ui: "Открыть дашборд: skaro ui"
+  constitution:
+    created: "Constitution создан: {path}"
+    valid: "Constitution валиден"
+    invalid: "Валидация Constitution не пройдена"
+    missing_section: "Отсутствует раздел: {section}"
+    section_ok: "Раздел OK: {section}"
+  task:
+    created: "Задача создана: {name}"
+    not_found: "Задача не найдена: {name}"
+    list_empty: "Задач пока нет. Запустите 'skaro devplan' или 'skaro task new <milestone> <имя>'"
+    status: "Задача '{name}': фаза {phase}, этап {stage}"
+  milestone:
+    created: "Веха создана: {name}"
+    not_found: "Веха не найдена: {name}"
+    list_empty: "Вех пока нет. Запустите 'skaro devplan'"
+  clarify:
+    start: "Анализирую спецификацию '{feature}'..."
+    question: "Вопрос {n}/{total}"
+    saved: "Уточнения сохранены: {path}"
+    spec_updated: "Спецификация обновлена с учётом уточнений"
+  plan:
+    start: "Генерирую план для '{feature}'..."
+    created: "План создан: {stages} этапов"
+    parallel: "Этапы {stages} можно выполнять параллельно"
+    review_prompt: "Открыть план в редакторе?"
+  implement:
+    start: "Реализую этап {stage} задачи '{feature}'..."
+    files_created: "Созданы файлы:"
+    tests_result: "Тесты: {passed}/{total} пройдено"
+    awaiting_review: "Ожидает вашего ревью"
+    stage_complete: "Этап {stage} завершён, коммит создан"
+  review:
+    start: "Кросс-валидация задачи '{feature}'..."
+    spec_code_ok: "SPEC ↔ КОД: все требования реализованы"
+    spec_code_gap: "SPEC ↔ КОД: найдено расхождений: {count}"
+    invariants_ok: "ИНВАРИАНТЫ: все соблюдены"
+    invariants_broken: "ИНВАРИАНТЫ: нарушений: {count}"
+    must_fix: "ОБЯЗАТЕЛЬНО ИСПРАВИТЬ"
+    should_improve: "ЖЕЛАТЕЛЬНО УЛУЧШИТЬ"
+    nice_to_have: "ПРИ СЛУЧАЕ"
+  ui:
+    starting: "Запускаю Skaro Dashboard на http://localhost:{port}"
+    stopped: "Dashboard остановлен"
+  config:
+    saved: "Конфигурация сохранена: {path}"
+    current: "Текущая конфигурация:"
+  quickfix:
+    start: "Быстрый фикс: {description}"
+    complete: "Фикс применён и проверен"
+  validate:
+    checking: "Валидирую DoD для {feature}, фаза {phase}..."
+    passed: "Все проверки пройдены"
+    failed: "Не пройдено проверок: {count}"
+  # Обратная совместимость
+  feature:
+    created: "Задача создана: {name}"
+    not_found: "Задача не найдена: {name}"
+    list_empty: "Задач пока нет. Запустите 'skaro devplan' или 'skaro task new <milestone> <имя>'"
+    status: "Задача '{name}': фаза {phase}, этап {stage}"
+
+phases:
+  constitution: "Constitution"
+  architecture: "Архитектура"
+  clarify: "Уточнение"
+  plan: "План"
+  implement: "Реализация"
+  review: "Ревью"
+
+status:
+  not_started: "не начато"
+  in_progress: "в работе"
+  complete: "завершено"
+  draft: "черновик"
+  awaiting_review: "ожидает ревью"
+
+errors:
+  no_skaro: "Skaro не инициализирован. Выполните 'skaro init'."
+  no_constitution: "Constitution не найден. Выполните 'skaro constitution init'."
+  no_llm_config: "LLM не настроен. Выполните 'skaro config'."
+  llm_error: "Ошибка LLM: {error}"
+  file_not_found: "Файл не найден: {path}"

@@ -1,0 +1,122 @@
+<script>
+    import { t } from '$lib/i18n/index.js';
+    import { MessageCircle, ClipboardList, Code, FlaskConical, Check } from 'lucide-svelte';
+
+    /** @type {{ phases: Record<string, string> }} */
+    let { phases } = $props();
+
+    const phaseKeys = [
+        { key: 'clarify', icon: MessageCircle },
+        { key: 'plan', icon: ClipboardList },
+        { key: 'implement', icon: Code },
+        { key: 'tests', icon: FlaskConical },
+    ];
+
+    function statusClass(status) {
+        if (status === 'complete') return 'ok';
+        if (['in_progress', 'draft', 'awaiting_review'].includes(status)) return 'wip';
+        return '';
+    }
+
+    function statusColor(status) {
+        if (status === 'complete') return 'var(--gn-bright)';
+        if (['in_progress', 'draft', 'awaiting_review'].includes(status)) return 'var(--yl)';
+        return 'var(--bg2)';
+    }
+</script>
+
+<div class="phase-bar">
+    {#each phaseKeys as phase, i}
+        {@const status = phases[phase.key] || 'not_started'}
+        {@const cls = statusClass(status)}
+        {@const nextStatus = i < phaseKeys.length - 1 ? (phases[phaseKeys[i + 1].key] || 'not_started') : 'not_started'}
+        {@const Icon = phase.icon}
+        <div class="phase-cell">
+            {#if i < phaseKeys.length - 1}
+                <div class="phase-line" style="background: linear-gradient(to right, {statusColor(status)}, {statusColor(nextStatus)})"></div>
+            {/if}
+            <div class="dot {cls}">
+                {#if cls === 'ok'}
+                    <Check size={13} strokeWidth={2.5} />
+                {:else}
+                    <Icon size={13} strokeWidth={1.5} />
+                {/if}
+            </div>
+            <span class="phase-lbl" class:lbl-ok={cls === 'ok'} class:lbl-wip={cls === 'wip'}>
+				{$t('phase.' + phase.key)}
+			</span>
+        </div>
+    {/each}
+</div>
+
+<style>
+    .phase-bar {
+        display: flex;
+        align-items: flex-start;
+        margin: 2rem 0;
+    }
+
+    .phase-cell {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+    }
+
+    .phase-line {
+        position: absolute;
+        top: 0.6875rem;
+        left: 50%;
+        right: -50%;
+        height: 0.125rem;
+        background: var(--bg2);
+        z-index: 0;
+        transition: background .2s;
+    }
+
+    .phase-cell:last-child .phase-line {
+        display: none;
+    }
+
+    .dot {
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 50%;
+        border: 0.125rem solid var(--bg2);
+        flex-shrink: 0;
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--tx);
+        background: var(--bg2);
+        transition: all .2s;
+    }
+
+    .dot.ok {
+        background: var(--gn-bright);
+        border-color: var(--gn-bright);
+        color: #fff;
+    }
+
+    .dot.wip {
+        background: var(--yl);
+        border-color: var(--yl);
+        color: var(--bg2);
+    }
+
+    .phase-lbl {
+        font-size: .7rem;
+        color: var(--tx);
+        margin-top: 0.375rem;
+        white-space: nowrap;
+        text-align: center;
+        font-family: var(--font-ui);
+        transition: color .2s;
+    }
+
+    .phase-lbl.lbl-ok { color: var(--gn-bright); }
+    .phase-lbl.lbl-wip { color: var(--yl); }
+</style>

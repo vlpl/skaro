@@ -1,0 +1,98 @@
+<script>
+	import { t } from '$lib/i18n/index.js';
+	import { Search, ClipboardList, Hammer, FlaskConical, RefreshCw, Loader2 } from 'lucide-svelte';
+
+	let {
+		phases = {},
+		currentStage = 0,
+		totalStages = 0,
+		actionLoading = '',
+		hasUnanswered = false,
+		onClarify = () => {},
+		onPlan = () => {},
+		onImplement = () => {},
+		onTests = () => {},
+	} = $props();
+</script>
+
+<div class="actions-block">
+	{#if phases.clarify !== 'complete' && !hasUnanswered}
+		<p class="phase-hint"><strong>{$t('phase_hint.prefix')}</strong>{$t('phase_hint.clarify')}</p>
+		<div class="btn-group">
+			<button class="btn btn-primary" disabled={!!actionLoading} onclick={onClarify}>
+				{#if actionLoading === 'clarify'}<Loader2 size={14} class="spin" />{:else}<Search size={14} />{/if}
+				{$t('action.clarify')}
+			</button>
+		</div>
+
+	{:else if phases.clarify === 'complete' && phases.plan !== 'complete'}
+		<p class="phase-hint"><strong>{$t('phase_hint.prefix')}</strong>{$t('phase_hint.plan')}</p>
+		<div class="btn-group">
+			<button class="btn btn-primary" disabled={!!actionLoading} onclick={onPlan}>
+				{#if actionLoading === 'plan'}<Loader2 size={14} class="spin" />{:else}<ClipboardList size={14} />{/if}
+				{$t('action.gen_plan')}
+			</button>
+			<button class="btn" disabled={!!actionLoading} onclick={onClarify}>
+				<RefreshCw size={14} /> {$t('action.re_clarify')}
+			</button>
+		</div>
+
+	{:else if phases.plan === 'complete' && (totalStages === 0 || currentStage + 1 <= totalStages)}
+		{@const nextStage = currentStage + 1}
+		<p class="phase-hint"><strong>{$t('phase_hint.prefix')}</strong>{$t('phase_hint.implement', { n: nextStage, total: totalStages || '?' })}</p>
+		<div class="btn-group">
+			<button class="btn btn-primary" disabled={!!actionLoading} onclick={onImplement}>
+				{#if actionLoading === 'implement'}<Loader2 size={14} class="spin" />{:else}<Hammer size={14} />{/if}
+				{$t('action.implement_stage', { n: nextStage })}
+			</button>
+			{#if phases.clarify === 'complete' && !hasUnanswered}
+				<button class="btn" disabled={!!actionLoading} onclick={onClarify}>
+					<RefreshCw size={14} /> {$t('action.re_clarify')}
+				</button>
+			{/if}
+		</div>
+
+	{:else if phases.implement === 'complete' || (currentStage > 0 && currentStage >= totalStages)}
+		<p class="phase-hint"><strong>{$t('phase_hint.prefix')}</strong>{$t('phase_hint.tests')}</p>
+		<div class="btn-group">
+			<button class="btn btn-primary" disabled={!!actionLoading} onclick={onTests}>
+				{#if actionLoading === 'tests'}<Loader2 size={14} class="spin" />{:else}<FlaskConical size={14} />{/if}
+				{$t('action.run_tests')}
+			</button>
+			{#if phases.clarify === 'complete' && !hasUnanswered}
+				<button class="btn" disabled={!!actionLoading} onclick={onClarify}>
+					<RefreshCw size={14} /> {$t('action.re_clarify')}
+				</button>
+			{/if}
+		</div>
+	{/if}
+</div>
+
+{#if actionLoading && !hasUnanswered}
+	<div class="loading-text">
+		<Loader2 size={14} class="spin" />
+		{#if actionLoading === 'clarify'}{$t('action.clarifying')}
+		{:else if actionLoading === 'plan'}{$t('action.planning')}
+		{:else if actionLoading === 'implement'}{$t('action.implementing', { n: currentStage + 1 })}
+		{:else if actionLoading === 'tests'}{$t('action.running_tests')}
+		{:else if actionLoading === 'submit'}{$t('clarify.updating')}
+		{/if}
+	</div>
+{/if}
+
+<style>
+	.actions-block {
+		margin: 0.75rem 0;
+	}
+
+    .phase-hint {
+        margin: 1.5rem 0 0;
+        padding: 1rem .9rem;
+        font-size: .9rem;
+        color: var(--dm);
+        background: var(--bg2);
+        line-height: 1.5;
+        border: .0625rem solid var(--dm2);
+        border-radius: var(--r);
+    }
+</style>

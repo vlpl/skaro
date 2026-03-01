@@ -1,0 +1,51 @@
+<script>
+	import { t } from '$lib/i18n/index.js';
+	import { ArrowLeft, BadgeCheck, Boxes } from 'lucide-svelte';
+	import PhaseBar from '$lib/ui/PhaseBar.svelte';
+
+	let { taskName, phases = {}, currentPhase = '', currentStage = 0, totalStages = 0, onBack } = $props();
+
+	let pct = $derived(totalStages > 0 ? Math.round((currentStage / totalStages) * 100) : 0);
+	let allComplete = $derived(
+		phases && Object.values(phases).length > 0
+			&& Object.values(phases).every((s) => s === 'complete')
+	);
+	let showProgress = $derived(currentPhase === 'implement' && totalStages > 0);
+</script>
+
+<button class="back" type="button" onclick={onBack}><ArrowLeft size={14} /> {$t('task.back')}</button>
+
+<div class="main-header">
+	<h2>
+		{#if allComplete}
+			<span class="status-icon complete"><BadgeCheck size={24} /></span>
+		{:else}
+			<span class="status-icon wip"><Boxes size={24} /></span>
+		{/if}
+		{$t('task.detail_title', { name: taskName })}
+	</h2>
+</div>
+<PhaseBar {phases} />
+
+{#if showProgress}
+	<div class="progress-label" class:progress-complete={pct >= 100}>
+		{$t('task.implement_progress')}: {currentStage}/{totalStages} ({pct}%)
+	</div>
+	<div class="progress-bar"><div class="progress-fill" style="width: {pct}%"></div></div>
+{/if}
+
+<style>
+	.back {
+		display: inline-flex; align-items: center; gap: 0.25rem;
+		color: var(--dm); font-size: 0.8125rem; cursor: pointer; margin-bottom: 0.75rem;
+		background: none; border: none; padding: 0; font-family: inherit;
+	}
+	.back:hover { color: var(--ac); }
+	.status-icon { display: inline-flex; align-items: center; flex-shrink: 0; }
+	.status-icon.complete { color: var(--gn-bright); }
+	.status-icon.wip { color: var(--tx-bright); }
+	.progress-bar { height: 0.1875rem; background: var(--bd); border-radius: 0.125rem; margin-top: 0.25rem; overflow: hidden; }
+	.progress-fill { height: 100%; background: var(--ac); border-radius: 0.125rem; transition: width .3s; }
+	.progress-label { font-size: 0.75rem; color: var(--dm); margin-top: 0.375rem; font-family: var(--font-ui); }
+	.progress-label.progress-complete { color: var(--ac); font-weight: 600; }
+</style>
