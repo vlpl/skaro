@@ -60,7 +60,6 @@ packages = ["src/skaro_core", "src/skaro_cli", "src/skaro_web"]
 # after pip install.
 [tool.hatch.build.targets.wheel.force-include]
 "templates" = "skaro_core/templates"
-"src/skaro_web/static" = "skaro_web/static"
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -76,8 +75,9 @@ include = [
     "MANIFEST.in",
 ]
 
-[tool.hatch.build.hooks.custom]
-path = "build_hooks/frontend_hook.py"
+# Frontend must be pre-built before packaging:
+#   cd frontend && npm install && npm run build
+# Build hook disabled to avoid duplicate files in wheel.
 
 [tool.ruff]
 target-version = "py311"
