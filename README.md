@@ -7,11 +7,27 @@ Specifications live in the repository next to code. Context never gets lost.
 
 ## Install
 
-```
-pip install skaro
+Python 3.11+ required. Everything included: CLI, web dashboard, LLM adapters, templates.
+
+**Linux / macOS:**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/skarodev/skaro/main/install.sh | sh
 ```
 
-Python 3.11+ required. Everything included: CLI, web dashboard, LLM adapters, templates.
+**Windows (PowerShell):**
+
+```powershell
+irm https://raw.githubusercontent.com/skarodev/skaro/main/install.ps1 | iex
+```
+
+**Alternative (if you have pipx or uv):**
+
+```
+pipx install skaro
+# or
+uv tool install skaro
+```
 
 ## Quick start
 
@@ -30,6 +46,7 @@ skaro ui
 ```
 git clone https://github.com/skarodev/skaro.git
 cd skaro
+python3 -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 ```
 

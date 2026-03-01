@@ -1,0 +1,72 @@
+name: Release to PyPI
+
+on:
+  push:
+    branches: [main]
+
+# Prevent concurrent releases
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # Skip if the push was made by this workflow (prevent infinite loop)
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install build tools
+        run: pip install build
+
+      # ── Bump patch version ────────────────────
+      - name: Bump version
+        id: bump
+        run: |
+          # Extract current version
+          current=$(grep -oP '^version\s*=\s*"\K[^"]+' pyproject.toml)
+          echo "Current version: $current"
+
+          # Split and increment patch
+          IFS='.' read -r major minor patch <<< "$current"
+          new_version="${major}.${minor}.$((patch + 1))"
+          echo "New version: $new_version"
+
+          # Update pyproject.toml
+          sed -i "s/^version = \"${current}\"/version = \"${new_version}\"/" pyproject.toml
+
+          # Export for later steps
+          echo "version=$new_version" >> "$GITHUB_OUTPUT"
+
+      # ── Commit version bump ───────────────────
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml
+          git commit -m "release: v${{ steps.bump.outputs.version }} [skip ci]"
+          git tag "v${{ steps.bump.outputs.version }}"
+          git push origin main --tags
+
+      # ── Build ─────────────────────────────────
+      - name: Build package
+        run: python -m build
+
+      # ── Publish to PyPI ───────────────────────
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
