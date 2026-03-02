@@ -1,6 +1,7 @@
 <script>
 	import { t } from '$lib/i18n/index.js';
 	import { Eye, EyeOff } from 'lucide-svelte';
+	import ProviderSelect from '$lib/ui/ProviderSelect.svelte';
 
 	let {
 		role = {},
@@ -47,9 +48,7 @@
 			<div class="form-row">
 				<div class="form-field">
 					<label for={`role-${role.id}-provider`}>{$t('settings.provider')}</label>
-					<select id={`role-${role.id}-provider`} bind:value={override.provider} onchange={onProviderChange}>
-						{#each providerNames as p}<option value={p}>{p}</option>{/each}
-					</select>
+					<ProviderSelect id={`role-${role.id}-provider`} bind:value={override.provider} providers={providerNames} onchange={onProviderChange} />
 				</div>
 				<div class="form-field">
 					<label for={`role-${role.id}-model`}>{$t('settings.model')}</label>

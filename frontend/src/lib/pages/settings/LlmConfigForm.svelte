@@ -1,6 +1,7 @@
 <script>
 	import { t } from '$lib/i18n/index.js';
 	import { Eye, EyeOff } from 'lucide-svelte';
+	import ProviderSelect from '$lib/ui/ProviderSelect.svelte';
 
 	let {
 		provider = $bindable(''),
@@ -26,9 +27,7 @@
 	<div class="form-grid-2">
 		<div class="form-field">
 			<label for="llm-provider">{$t('settings.provider')}</label>
-			<select id="llm-provider" bind:value={provider} onchange={onProviderChange}>
-				{#each providerNames as p}<option value={p}>{p}</option>{/each}
-			</select>
+			<ProviderSelect id="llm-provider" bind:value={provider} providers={providerNames} onchange={onProviderChange} />
 		</div>
 		<div class="form-field">
 			<label for="llm-model">{$t('settings.model')}</label>
