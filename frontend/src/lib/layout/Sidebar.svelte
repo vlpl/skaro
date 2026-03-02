@@ -36,7 +36,7 @@
 	let collapsed = $state(readStored());
 	let currentPath = $derived($page.url.pathname);
 	let hoveredTab = $state('');
-	let logoSrc = $derived($theme === 'light' ? '/logo-light.svg' : '/logo.svg');
+	let logoSrc = $derived($theme === 'light' ? '/logo.svg' : '/logo.svg');
 
 	function toggle() {
 		collapsed = !collapsed;
@@ -70,7 +70,9 @@
 	<div class="sidebar-header">
 		{#if !collapsed}
 			<div class="logo-area">
-				<img src={logoSrc} alt="Skaro" class="logo-img" />
+                <a href="/">
+				    <img src={logoSrc} alt="Skaro" class="logo-img" />
+                </a>
 			</div>
 		{/if}
 		<button class="toggle-btn" onclick={toggle} title={collapsed ? 'Expand' : 'Collapse'}>
@@ -146,12 +148,12 @@
 		align-items: center;
 		flex: 1;
 		min-width: 0;
-		padding-left: 0.375rem;
+		padding-left: 0.75rem;
 	}
 
 	.logo-img {
-		width: 4.875rem;
-		height: auto;
+		width: 30px;
+		height: 30px;
 		display: block;
 		flex-shrink: 0;
 	}
