@@ -8,12 +8,14 @@
 	import { FileText, AlertTriangle, CheckCircle, XCircle, Loader2, Pencil } from 'lucide-svelte';
 	import MarkdownContent from '$lib/ui/MarkdownContent.svelte';
 	import MdEditor from '$lib/ui/md-editor/MdEditor.svelte';
+	import TemplatePicker from '$lib/pages/constitution/TemplatePicker.svelte';
 
 	let data = $state(null);
 	let validation = $state(null);
 	let validating = $state(false);
 	let error = $state('');
 	let showEditor = $state(false);
+	let editorContent = $state('');
 
 	onMount(() => { load(); });
 
@@ -42,6 +44,16 @@
 			showEditor = false;
 		} catch (e) { addError(e.message, 'constitutionSave'); throw e; }
 	}
+
+	function openPreset(content) {
+		editorContent = content;
+		showEditor = true;
+	}
+
+	function openEditor() {
+		editorContent = data?.content || '';
+		showEditor = true;
+	}
 </script>
 
 <div class="main-header">
@@ -55,14 +67,12 @@
 	<div class="loading-text"><Loader2 size={14} class="spin" /> {$t('app.loading')}</div>
 {:else}
 	{#if !data.has_constitution}
-		<div class="alert alert-warn"><AlertTriangle size={14} /> {$t('const.empty')}</div>
-		<div class="instructions">
-			<h4>{$t('const.next_steps')}</h4>
-			<ol>
-				<li>{$t('const.step1', { file: '.skaro/constitution.md' })}</li>
-				<li>{$t('const.step2')}</li>
-				<li>{$t('const.step3')}</li>
-			</ol>
+		<div class="alert alert-info"><AlertTriangle size={14} /> {$t('const.empty')}</div>
+		<TemplatePicker onSelect={openPreset} />
+		<div class="btn-group">
+			<button class="btn" onclick={openEditor}>
+				<Pencil size={14} /> {$t('editor.edit')}
+			</button>
 		</div>
 	{:else}
 		<div class="btn-group">
@@ -70,7 +80,7 @@
 				{#if validating}<Loader2 size={14} class="spin" />{:else}<CheckCircle size={14} />{/if}
 				{$t('const.validate')}
 			</button>
-			<button class="btn" onclick={() => showEditor = true}>
+			<button class="btn" onclick={openEditor}>
 				<Pencil size={14} /> {$t('editor.edit')}
 			</button>
 		</div>
@@ -98,7 +108,7 @@
 
 	{#if showEditor}
 		<MdEditor
-			content={data.content || ''}
+			content={editorContent}
 			onSave={saveContent}
 			onClose={() => showEditor = false}
 		/>

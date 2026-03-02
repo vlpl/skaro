@@ -15,10 +15,16 @@ from skaro_core.config._models import (
 
 
 def find_project_root(start: Path | None = None) -> Path | None:
-    """Walk up from start (or cwd) looking for .skaro/ directory."""
+    """Walk up from start (or cwd) looking for .skaro/ directory.
+
+    Skips directories where .skaro/ is the global installation directory
+    (venv, bin) rather than a project directory.
+    """
     current = start or Path.cwd()
+    global_dir = GLOBAL_CONFIG_DIR.resolve()
     for parent in [current, *current.parents]:
-        if (parent / SKARO_DIR).is_dir():
+        candidate = parent / SKARO_DIR
+        if candidate.is_dir() and candidate.resolve() != global_dir:
             return parent
     return None
 

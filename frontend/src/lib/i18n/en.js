@@ -69,6 +69,7 @@ export default {
 	'const.valid': 'Constitution is valid — all sections present.',
 	'const.invalid': 'Some sections are missing or incomplete:',
 	'const.content': 'Content',
+	'const.preset_hint': 'Choose a framework template to pre-fill the constitution, then customize it for your project.',
 
 	// Architecture
 	'arch.title': 'Architecture',
