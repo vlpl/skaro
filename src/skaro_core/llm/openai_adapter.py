@@ -30,6 +30,18 @@ class OpenAIAdapter(BaseLLMAdapter):
             )
         except openai.RateLimitError as e:
             raise LLMError(f"OpenAI rate limit exceeded. {e}", provider="openai", retriable=True) from e
+        except openai.AuthenticationError as e:
+            raise LLMError(
+                f"OpenAI authentication failed (401). Check your API key in Settings.",
+                provider="openai",
+                status_code=401,
+            ) from e
+        except openai.PermissionDeniedError as e:
+            raise LLMError(
+                f"OpenAI permission denied (403). Your API key may lack required permissions.",
+                provider="openai",
+                status_code=403,
+            ) from e
         except openai.APIError as e:
             raise LLMError(f"OpenAI API error: {e}", provider="openai") from e
         except Exception as e:
@@ -58,6 +70,18 @@ class OpenAIAdapter(BaseLLMAdapter):
             )
         except openai.RateLimitError as e:
             raise LLMError(f"OpenAI rate limit exceeded. {e}", provider="openai", retriable=True) from e
+        except openai.AuthenticationError as e:
+            raise LLMError(
+                f"OpenAI authentication failed (401). Check your API key in Settings.",
+                provider="openai",
+                status_code=401,
+            ) from e
+        except openai.PermissionDeniedError as e:
+            raise LLMError(
+                f"OpenAI permission denied (403). Your API key may lack required permissions.",
+                provider="openai",
+                status_code=403,
+            ) from e
         except openai.APIError as e:
             raise LLMError(f"OpenAI API error: {e}", provider="openai") from e
         except Exception as e:

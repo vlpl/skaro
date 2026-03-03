@@ -13,12 +13,35 @@ const WS_RECONNECT_DELAY = 3000;
 // ── HTTP helpers ──────────────────────────────
 
 /**
+ * Parse an error response body and build a descriptive Error.
+ * Server returns JSON like {success, message, error_type, provider, retriable}.
+ * @param {string} method
+ * @param {string} path
+ * @param {Response} res
+ * @returns {Promise<Error>}
+ */
+async function apiError(method, path, res) {
+	let serverMessage = '';
+	try {
+		const body = await res.json();
+		serverMessage = body.message || body.detail || '';
+	} catch {
+		/* response is not JSON — fall through */
+	}
+	const text = serverMessage || `${method} ${path}: ${res.status}`;
+	const err = new Error(text);
+	/** @type {any} */ (err).status = res.status;
+	/** @type {any} */ (err).serverMessage = serverMessage;
+	return err;
+}
+
+/**
  * @param {string} path
  * @param {AbortSignal} [signal]
  */
 async function get(path, signal) {
 	const res = await fetch(`${BASE}${path}`, { signal });
-	if (!res.ok) throw new Error(`GET ${path}: ${res.status}`);
+	if (!res.ok) throw await apiError('GET', path, res);
 	return res.json();
 }
 
@@ -34,7 +57,7 @@ async function post(path, body = {}, signal) {
 		body: JSON.stringify(body),
 		signal,
 	});
-	if (!res.ok) throw new Error(`POST ${path}: ${res.status}`);
+	if (!res.ok) throw await apiError('POST', path, res);
 	return res.json();
 }
 
@@ -50,7 +73,7 @@ async function put(path, body = {}, signal) {
 		body: JSON.stringify(body),
 		signal,
 	});
-	if (!res.ok) throw new Error(`PUT ${path}: ${res.status}`);
+	if (!res.ok) throw await apiError('PUT', path, res);
 	return res.json();
 }
 
@@ -60,7 +83,7 @@ async function put(path, body = {}, signal) {
  */
 async function del(path, signal) {
 	const res = await fetch(`${BASE}${path}`, { method: 'DELETE', signal });
-	if (!res.ok) throw new Error(`DELETE ${path}: ${res.status}`);
+	if (!res.ok) throw await apiError('DELETE', path, res);
 	return res.json();
 }
 
@@ -76,7 +99,7 @@ async function patch(path, body = {}, signal) {
 		body: JSON.stringify(body),
 		signal,
 	});
-	if (!res.ok) throw new Error(`PATCH ${path}: ${res.status}`);
+	if (!res.ok) throw await apiError('PATCH', path, res);
 	return res.json();
 }
 
@@ -169,6 +192,18 @@ export const api = {
 	getTokens: (signal) => get('/api/tokens', signal),
 	getStats: (signal) => get('/api/stats', signal),
 	getDashboard: (signal) => get('/api/dashboard', signal),
+
+	// Git
+	getGitStatus: (signal) => get('/api/git/status', signal),
+	getGitDiff: (/** @type {string} */ file, signal) => get(`/api/git/diff?file=${encodeURIComponent(file)}`, signal),
+	gitStage: (/** @type {string[]} */ files, signal) => post('/api/git/stage', { files }, signal),
+	gitUnstage: (/** @type {string[]} */ files, signal) => post('/api/git/unstage', { files }, signal),
+	gitCommit: (/** @type {string} */ message, /** @type {boolean} */ push, signal) =>
+		post('/api/git/commit', { message, push }, signal),
+	gitPush: (signal) => post('/api/git/push', {}, signal),
+	getGitBranches: (signal) => get('/api/git/branches', signal),
+	gitCheckout: (/** @type {string} */ branch, /** @type {boolean} */ create, signal) =>
+		post('/api/git/checkout', { branch, create }, signal),
 };
 
 // ── WebSocket ─────────────────────────────────

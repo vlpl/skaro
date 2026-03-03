@@ -9,6 +9,7 @@
 	import LayersAnimated from '$lib/ui/icons/LayersAnimated.svelte';
 	import MapFoldFlipAnimated from '$lib/ui/icons/MapFoldFlipAnimated.svelte';
 	import PackageOpenAnimated from '$lib/ui/icons/PackageOpenAnimated.svelte';
+	import GitBranchAnimated from '$lib/ui/icons/GitBranchAnimated.svelte';
 	import FolderOpenCrossfade from '$lib/ui/icons/FolderOpenCrossfade.svelte';
 
 	const STORAGE_KEY = 'skaro:sidebar-collapsed';
@@ -20,6 +21,7 @@
 		{ id: 'adr', icon: FolderOpenCrossfade, labelKey: 'nav.adr' },
 		{ id: 'devplan', icon: MapFoldFlipAnimated, labelKey: 'nav.devplan' },
 		{ id: 'tasks', icon: PackageOpenAnimated, labelKey: 'nav.tasks' },
+		{ id: 'git', icon: GitBranchAnimated, labelKey: 'nav.git' },
 	];
 
 	const settingsTab = { id: 'settings', labelKey: 'nav.settings' };
@@ -62,6 +64,7 @@
 		if (id === 'tasks') return s.tasks?.length ? { text: s.tasks.length, cls: '' } : null;
 		if (id === 'adr') return s.adr_count ? { text: s.adr_count, cls: '' } : null;
 		if (id === 'devplan') return s.has_devplan ? { text: '✓', cls: 'ok' } : null;
+		if (id === 'git') return s.git_staged_count ? { text: s.git_staged_count, cls: 'warn' } : null;
 		return null;
 	}
 </script>

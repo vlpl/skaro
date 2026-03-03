@@ -48,7 +48,12 @@ def create_app(project_root: Path | None = None) -> FastAPI:
 
     @app.exception_handler(LLMError)
     async def llm_error_handler(request, exc: LLMError):  # noqa: ARG001
-        status_code = 503 if exc.retriable else 502
+        if exc.status_code:
+            status_code = exc.status_code
+        elif exc.retriable:
+            status_code = 503
+        else:
+            status_code = 502
         return JSONResponse(
             status_code=status_code,
             content={

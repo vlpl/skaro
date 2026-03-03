@@ -196,6 +196,12 @@ async def apply_implement_file(
     target.parent.mkdir(parents=True, exist_ok=True)
     await asyncio.to_thread(target.write_text, payload.content, "utf-8")
     await broadcast(request, {"event": "implement:applied", "task": name, "file": payload.filepath})
+
+    # Auto-stage the applied file in git
+    from skaro_web.api.git import auto_stage_file
+
+    await auto_stage_file(project_root, payload.filepath)
+
     return {"success": True, "message": f"Applied: {payload.filepath}"}
 
 
@@ -320,6 +326,12 @@ async def apply_fix_file(
     phase = FixPhase(project_root=project_root)
     result = phase.apply_file(name, payload.filepath, payload.content)
     await broadcast(request, {"event": "fix:applied", "task": name, "file": payload.filepath})
+
+    # Auto-stage the applied file in git
+    from skaro_web.api.git import auto_stage_file
+
+    await auto_stage_file(project_root, payload.filepath)
+
     return {"success": result.success, "message": result.message}
 
 

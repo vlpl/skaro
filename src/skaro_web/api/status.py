@@ -20,6 +20,17 @@ STATIC_DIR = Path(__file__).parent.parent / "static"
 DASHBOARD_FILE = Path(__file__).parent.parent / "dashboard.html"
 
 
+def _git_staged_count(project_root: Path) -> int:
+    """Return number of staged files in git, 0 if not a repo."""
+    try:
+        from git import InvalidGitRepositoryError, Repo
+
+        repo = Repo(project_root)
+        return len(list(repo.index.diff("HEAD")))
+    except Exception:
+        return 0
+
+
 def _build_status(am: ArtifactManager, project_root: Path) -> dict[str, Any]:
     """Build project status dict (reused by /status and /dashboard)."""
     if not am.is_initialized:
@@ -69,6 +80,7 @@ def _build_status(am: ArtifactManager, project_root: Path) -> dict[str, Any]:
             "roles": roles_info,
         },
         "tokens": tokens,
+        "git_staged_count": _git_staged_count(project_root),
     }
 
 

@@ -29,6 +29,7 @@
 		adr: 'nav.adr',
 		devplan: 'nav.devplan',
 		tasks: 'nav.tasks',
+		git: 'nav.git',
 		settings: 'nav.settings',
 	};
 

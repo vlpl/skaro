@@ -46,6 +46,18 @@ class GroqAdapter(BaseLLMAdapter):
                 provider="groq",
                 retriable=True,
             ) from e
+        except openai.AuthenticationError as e:
+            raise LLMError(
+                f"Groq authentication failed (401). Check your API key in Settings.",
+                provider="groq",
+                status_code=401,
+            ) from e
+        except openai.PermissionDeniedError as e:
+            raise LLMError(
+                f"Groq permission denied (403). Your API key may lack required permissions.",
+                provider="groq",
+                status_code=403,
+            ) from e
         except openai.APIError as e:
             raise LLMError(
                 f"Groq API error: {e.message if hasattr(e, 'message') else str(e)}",
@@ -80,6 +92,18 @@ class GroqAdapter(BaseLLMAdapter):
             raise LLMError(
                 f"Groq rate limit exceeded. {e.message if hasattr(e, 'message') else str(e)}",
                 provider="groq", retriable=True,
+            ) from e
+        except openai.AuthenticationError as e:
+            raise LLMError(
+                f"Groq authentication failed (401). Check your API key in Settings.",
+                provider="groq",
+                status_code=401,
+            ) from e
+        except openai.PermissionDeniedError as e:
+            raise LLMError(
+                f"Groq permission denied (403). Your API key may lack required permissions.",
+                provider="groq",
+                status_code=403,
             ) from e
         except openai.APIError as e:
             raise LLMError(f"Groq API error: {e.message if hasattr(e, 'message') else str(e)}", provider="groq") from e

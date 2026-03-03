@@ -196,3 +196,24 @@ class ConfigUpdateBody(BaseModel):
             roles_raw[rname] = rc
         d["roles"] = roles_raw
         return d
+
+
+# ═══════════════════════════════════════════════════
+# Git
+# ═══════════════════════════════════════════════════
+
+class GitStageBody(BaseModel):
+    """Stage or unstage a list of file paths."""
+    files: list[str] = Field(..., min_length=1)
+
+
+class GitCommitBody(BaseModel):
+    """Commit staged changes."""
+    message: str = Field(..., min_length=1)
+    push: bool = False
+
+
+class GitCheckoutBody(BaseModel):
+    """Switch or create a branch."""
+    branch: str = Field(..., min_length=1)
+    create: bool = False

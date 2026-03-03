@@ -35,6 +35,18 @@ class AnthropicAdapter(BaseLLMAdapter):
             )
         except anthropic.RateLimitError as e:
             raise LLMError(f"Anthropic rate limit exceeded. {e}", provider="anthropic", retriable=True) from e
+        except anthropic.AuthenticationError as e:
+            raise LLMError(
+                f"Anthropic authentication failed (401). Check your API key in Settings.",
+                provider="anthropic",
+                status_code=401,
+            ) from e
+        except anthropic.PermissionDeniedError as e:
+            raise LLMError(
+                f"Anthropic permission denied (403). Your API key may lack required permissions.",
+                provider="anthropic",
+                status_code=403,
+            ) from e
         except anthropic.APIError as e:
             raise LLMError(f"Anthropic API error: {e}", provider="anthropic") from e
         except Exception as e:
@@ -82,6 +94,18 @@ class AnthropicAdapter(BaseLLMAdapter):
                     }
         except anthropic.RateLimitError as e:
             raise LLMError(f"Anthropic rate limit exceeded. {e}", provider="anthropic", retriable=True) from e
+        except anthropic.AuthenticationError as e:
+            raise LLMError(
+                f"Anthropic authentication failed (401). Check your API key in Settings.",
+                provider="anthropic",
+                status_code=401,
+            ) from e
+        except anthropic.PermissionDeniedError as e:
+            raise LLMError(
+                f"Anthropic permission denied (403). Your API key may lack required permissions.",
+                provider="anthropic",
+                status_code=403,
+            ) from e
         except anthropic.APIError as e:
             raise LLMError(f"Anthropic API error: {e}", provider="anthropic") from e
         except Exception as e:

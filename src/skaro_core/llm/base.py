@@ -12,9 +12,16 @@ from skaro_core.config import LLMConfig
 class LLMError(Exception):
     """Raised when LLM API call fails."""
 
-    def __init__(self, message: str, provider: str = "", retriable: bool = False):
+    def __init__(
+        self,
+        message: str,
+        provider: str = "",
+        retriable: bool = False,
+        status_code: int | None = None,
+    ):
         self.provider = provider
         self.retriable = retriable
+        self.status_code = status_code
         super().__init__(message)
 
 
