@@ -63,7 +63,7 @@
     .phase-bar {
         display: flex;
         align-items: flex-start;
-        margin: 2rem 0;
+        margin: 1rem 0;
     }
 
     .phase-cell {

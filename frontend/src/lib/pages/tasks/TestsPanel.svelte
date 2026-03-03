@@ -84,7 +84,7 @@
 				parts.push(`[FAIL] ${check.label}: ${check.detail}`);
 			}
 		}
-		for (const cmd of [...(results.task_commands || []), ...(results.global_commands || [])]) {
+		for (const cmd of (results.task_commands || [])) {
 			if (!cmd.success) {
 				const output = (cmd.stderr || cmd.stdout || '').trim();
 				const truncated = output.length > 2000 ? output.slice(-2000) : output;
@@ -174,19 +174,6 @@
 				<div class="hint">{$t('tests.no_task_commands')}</div>
 			{/if}
 		</div>
-
-		<!-- ═══ Global commands (from config.yaml) ═══ -->
-		{#if results.global_commands && results.global_commands.length > 0}
-			<div class="tests-section">
-				<h4 class="section-title">{$t('tests.global_commands_title')}</h4>
-				<div class="commands">
-					{#each results.global_commands as cmd, i}
-						{@const key = `global-${i}`}
-						{@render commandItem(cmd, key, 'global', i)}
-					{/each}
-				</div>
-			</div>
-		{/if}
 
 		<!-- ═══ Summary & Actions ═══ -->
 		<div class="tests-summary" class:summary-pass={results.passed} class:summary-fail={!results.passed}>

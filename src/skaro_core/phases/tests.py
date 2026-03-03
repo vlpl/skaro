@@ -47,28 +47,20 @@ class TestsPhase(BasePhase):
         # ── 1. Structural checklist ─────────────────
         checklist = await asyncio.to_thread(self._run_structural_checks, task, plan)
 
-        # ── 2. Collect commands from both sources ───
+        # ── 2. Collect task-specific commands ────────
         task_commands = self._load_task_commands(task)
-        global_commands = [
-            {"name": vc.name, "command": vc.command}
-            for vc in self.config.verify_commands
-            if vc.command.strip()
-        ]
 
-        # ── 3. Run all commands ─────────────────────
+        # ── 3. Run task commands ────────────────────
         task_results = await self._run_commands(task_commands)
-        global_results = await self._run_commands(global_commands)
 
         # ── 4. Determine overall result ─────────────
         checklist_ok = all(item["passed"] for item in checklist)
         task_cmds_ok = all(cmd["success"] for cmd in task_results)
-        global_cmds_ok = all(cmd["success"] for cmd in global_results)
-        passed = checklist_ok and task_cmds_ok and global_cmds_ok
+        passed = checklist_ok and task_cmds_ok
 
         results = {
             "checklist": checklist,
             "task_commands": task_results,
-            "global_commands": global_results,
             "passed": passed,
             "timestamp": datetime.now().isoformat(),
         }
@@ -92,10 +84,6 @@ class TestsPhase(BasePhase):
         if task_results:
             ok = sum(1 for c in task_results if c["success"])
             summary_parts.append(f"Task commands: {ok}/{len(task_results)}")
-
-        if global_results:
-            ok = sum(1 for c in global_results if c["success"])
-            summary_parts.append(f"Global commands: {ok}/{len(global_results)}")
 
         return PhaseResult(
             success=True,

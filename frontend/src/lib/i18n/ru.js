@@ -13,6 +13,8 @@ export default {
 	'nav.tasks': 'Задачи',
 	'nav.git': 'Git',
 	'nav.security': 'Безопасность',
+	'nav.about': 'О проекте',
+    'nav.docs': 'Документация',
 
 	// Status bar
 	'status.connected': 'Подключено',
@@ -173,6 +175,12 @@ export default {
 	'task.detail_title': 'Задача: {name}',
 	'task.implement_progress': 'Реализация',
 	'task.all_milestones': 'Все',
+	'task.filter_all': 'Все',
+	'task.filter_active': 'В работе',
+	'task.filter_done': 'Готовы',
+	'task.filter_empty_all': 'Задач не найдено.',
+	'task.filter_empty_active': 'В этой вехе нет активных задач.',
+	'task.filter_empty_done': 'В этой вехе нет завершённых задач.',
 
 	// Phase actions
 	'action.clarify': 'Уточнить',
@@ -329,6 +337,27 @@ export default {
 	'nav.stats': 'Статистика',
 	'nav.dashboard': 'Дашборд',
 	'nav.settings': 'Настройки',
+
+	// ── Review ──
+	'nav.review': 'Ревью',
+	'review.title': 'Ревью проекта',
+	'review.subtitle': 'Кросс-валидация артефактов проекта и запуск глобальных команд верификации.',
+	'review.tab_tests': 'Тесты проекта',
+	'review.tab_fix': 'Исправления',
+	'review.checklist_title': 'Структурные проверки',
+	'review.global_commands_title': 'Глобальные команды верификации',
+	'review.all_passed': 'Все проверки проекта пройдены',
+	'review.has_failures': 'Часть проверок проекта не пройдена',
+	'review.send_to_fix': 'Отправить в исправления',
+	'review.rerun': 'Перезапустить',
+	'review.run_tests': 'Запустить ревью проекта',
+	'review.running_tests': 'Запуск ревью проекта...',
+	'review.tests_done': 'Ревью проекта завершено',
+	'review.not_run_yet': 'Ревью проекта ещё не запускалось.',
+	'review.fix_response': 'Получен ответ по исправлениям проекта',
+	'review.scope_title': 'Область контекста',
+	'review.scope_all': 'Все задачи (по умолчанию)',
+	'review.scope_selected': 'Выбрано задач: {n}',
 	'settings.title': 'Настройки',
 	'settings.subtitle': 'Информация о проекте, конфигурация LLM, роли и предпочтения.',
 	'settings.project_title': 'Проект',
@@ -438,4 +467,12 @@ export default {
 	'git.no_remote': 'нет remote',
 	'git.push': 'Push',
 	'git.commit_hint': 'Ctrl+Enter для быстрого коммита.',
+
+	// ── About ──
+    'about.tagline': 'AI-платформа для оркестрации жизненного цикла разработки ПО',
+    'about.description_title': 'О проекте',
+    'about.description': 'Skaro — AI-инструмент для сопровождения всего цикла разработки ПО: от архитектуры и планирования до реализации и ревью — с LLM на каждом этапе.',
+    'about.version': 'Версия',
+    'about.license': 'Лицензия',
+    'about.author': 'Автор',
 };

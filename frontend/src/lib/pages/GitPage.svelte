@@ -405,7 +405,6 @@
 	/* ── Branch bar ── */
 	.branch-bar {
 		background: var(--sf);
-		border: 0.0625rem solid var(--bd);
 		border-radius: var(--r);
 		padding: 0.625rem 0.75rem;
 		margin-bottom: 1rem;

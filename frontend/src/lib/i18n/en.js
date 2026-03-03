@@ -13,6 +13,8 @@ export default {
 	'nav.tasks': 'Tasks',
 	'nav.git': 'Git',
 	'nav.security': 'Security',
+	'nav.about': 'About',
+    'nav.docs': 'Docs',
 
 	// Status bar
 	'status.connected': 'Connected',
@@ -173,6 +175,12 @@ export default {
 	'task.detail_title': 'Task: {name}',
 	'task.implement_progress': 'Implement',
 	'task.all_milestones': 'All',
+	'task.filter_all': 'All',
+	'task.filter_active': 'Active',
+	'task.filter_done': 'Done',
+	'task.filter_empty_all': 'No tasks found.',
+	'task.filter_empty_active': 'No active tasks in this milestone.',
+	'task.filter_empty_done': 'No completed tasks in this milestone.',
 
 	// Phase actions
 	'action.clarify': 'Clarify',
@@ -329,6 +337,27 @@ export default {
 	'nav.stats': 'Statistics',
 	'nav.dashboard': 'Dashboard',
 	'nav.settings': 'Settings',
+
+	// ── Review ──
+	'nav.review': 'Review',
+	'review.title': 'Project Review',
+	'review.subtitle': 'Cross-validate project artifacts and run global verification commands.',
+	'review.tab_tests': 'Project Tests',
+	'review.tab_fix': 'Project Fix',
+	'review.checklist_title': 'Structural checks',
+	'review.global_commands_title': 'Global verify commands',
+	'review.all_passed': 'All project checks passed',
+	'review.has_failures': 'Some project checks failed',
+	'review.send_to_fix': 'Send to Project Fix',
+	'review.rerun': 'Re-run',
+	'review.run_tests': 'Run Project Tests',
+	'review.running_tests': 'Running project review...',
+	'review.tests_done': 'Project review completed',
+	'review.not_run_yet': 'Project review has not been run yet.',
+	'review.fix_response': 'Project fix response received',
+	'review.scope_title': 'Context scope',
+	'review.scope_all': 'All tasks (default)',
+	'review.scope_selected': '{n} task(s) selected',
 	'settings.title': 'Settings',
 	'settings.subtitle': 'Project info, LLM configuration, roles, and preferences.',
 	'settings.project_title': 'Project',
@@ -438,4 +467,12 @@ export default {
 	'git.no_remote': 'no remote',
 	'git.push': 'Push',
 	'git.commit_hint': 'Ctrl+Enter to commit quickly.',
+
+	// ── About ──
+    'about.tagline': 'AI-powered SDLC orchestration platform',
+    'about.description_title': 'About',
+    'about.description': 'Skaro is an AI-driven development lifecycle tool that guides teams through architecture, planning, implementation, and review — using LLMs at every stage.',
+    'about.version': 'Version',
+    'about.license': 'License',
+    'about.author': 'Author',
 };

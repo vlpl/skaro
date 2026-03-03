@@ -100,6 +100,52 @@ def _diff_for_file(repo, filepath: str) -> str:
         return f"(error getting diff: {exc})"
 
 
+def _stage_files(repo, project_root: Path, files: list[str]) -> tuple[int, list[str]]:
+    """Stage a list of files, handling manual deletions gracefully.
+
+    * Files that **exist on disk** are staged with ``git add`` (add/modify).
+    * Files **missing from disk but present in the index** are staged as
+      deletions with ``git rm`` — equivalent to the user running
+      ``git rm <file>`` after a manual delete.
+    * Files that exist **neither on disk nor in the index** are skipped with
+      a warning so a stale path never causes a 500 error.
+
+    Returns:
+        (staged_count, skipped_paths)
+    """
+    to_add: list[str] = []
+    to_remove: list[str] = []
+    skipped: list[str] = []
+
+    # Build the set of paths currently tracked in the index.
+    indexed: set[str] = (
+        {entry.path for entry in repo.index.entries.values()}
+        if repo.head.is_valid()
+        else set()
+    )
+
+    for f in files:
+        full = Path(repo.working_dir) / f
+        if full.exists():
+            to_add.append(f)
+        elif f in indexed:
+            # File was manually deleted — stage the deletion.
+            to_remove.append(f)
+        else:
+            logger.warning(
+                "git stage: skipping '%s' — not on disk and not tracked in index", f
+            )
+            skipped.append(f)
+
+    if to_add:
+        repo.index.add(to_add)
+    if to_remove:
+        repo.index.remove(to_remove, working_tree=False)
+
+    staged = len(to_add) + len(to_remove)
+    return staged, skipped
+
+
 # ═══════════════════════════════════════════════════
 # Endpoints
 # ═══════════════════════════════════════════════════
@@ -159,15 +205,24 @@ async def git_stage(
     payload: GitStageBody,
     project_root: Path = Depends(get_project_root),
 ):
-    """Stage (git add) selected files."""
+    """Stage (git add / git rm) selected files.
+
+    Files missing from disk are staged as deletions instead of raising an
+    error, so manually deleted files can be committed normally.
+    """
     repo = await asyncio.to_thread(_get_repo, project_root)
     if repo is None:
         return JSONResponse(status_code=400, content={"success": False, "message": "Not a git repository"})
 
     try:
-        await asyncio.to_thread(repo.index.add, payload.files)
+        staged, skipped = await asyncio.to_thread(
+            _stage_files, repo, project_root, payload.files
+        )
         await broadcast(request, {"event": "git:staged", "files": payload.files})
-        return {"success": True, "message": f"Staged {len(payload.files)} file(s)"}
+        msg = f"Staged {staged} file(s)"
+        if skipped:
+            msg += f"; skipped {len(skipped)} missing file(s): {', '.join(skipped)}"
+        return {"success": True, "message": msg, "skipped": skipped}
     except Exception as exc:
         logger.error("git stage error: %s", exc, exc_info=True)
         return JSONResponse(status_code=500, content={"success": False, "message": str(exc)})
@@ -317,12 +372,23 @@ async def git_checkout(
 # ═══════════════════════════════════════════════════
 
 async def auto_stage_file(project_root: Path, filepath: str) -> bool:
-    """Stage a single file after it was applied. Returns True on success."""
+    """Stage a single file after it was applied. Returns True on success.
+
+    Handles the case where the file no longer exists on disk (manual
+    deletion) by staging it as a deletion rather than raising an error.
+    """
     repo = await asyncio.to_thread(_get_repo, project_root)
     if repo is None:
         return False
     try:
-        await asyncio.to_thread(repo.index.add, [filepath])
+        staged, skipped = await asyncio.to_thread(
+            _stage_files, repo, project_root, [filepath]
+        )
+        if skipped:
+            logger.warning(
+                "Auto-stage skipped '%s': not on disk and not tracked in index", filepath
+            )
+            return False
         logger.info("Auto-staged: %s", filepath)
         return True
     except Exception as exc:

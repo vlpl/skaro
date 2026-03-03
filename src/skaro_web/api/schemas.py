@@ -137,6 +137,13 @@ class FixBody(BaseModel):
     conversation: list[dict[str, str]] = Field(default_factory=list)
 
 
+class ProjectFixBody(BaseModel):
+    """Payload for project-level fix chat."""
+    message: str = Field(..., min_length=1)
+    conversation: list[dict[str, str]] = Field(default_factory=list)
+    scope_tasks: list[str] = Field(default_factory=list)
+
+
 # ═══════════════════════════════════════════════════
 # Verify commands (Tests phase)
 # ═══════════════════════════════════════════════════

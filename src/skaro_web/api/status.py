@@ -31,6 +31,19 @@ def _git_staged_count(project_root: Path) -> int:
         return 0
 
 
+def _review_passed(am: ArtifactManager) -> bool | None:
+    """Return True/False/None based on last review results."""
+    results_path = am.skaro / "docs" / "review-results.json"
+    if not results_path.exists():
+        return None
+    try:
+        import json
+        data = json.loads(results_path.read_text(encoding="utf-8"))
+        return data.get("passed")
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def _build_status(am: ArtifactManager, project_root: Path) -> dict[str, Any]:
     """Build project status dict (reused by /status and /dashboard)."""
     if not am.is_initialized:
@@ -81,6 +94,7 @@ def _build_status(am: ArtifactManager, project_root: Path) -> dict[str, Any]:
         },
         "tokens": tokens,
         "git_staged_count": _git_staged_count(project_root),
+        "review_passed": _review_passed(am),
     }
 
 

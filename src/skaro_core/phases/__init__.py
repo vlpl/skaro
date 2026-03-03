@@ -12,6 +12,8 @@ from skaro_core.phases.devplan import DevPlanPhase
 from skaro_core.phases.implement import ImplementPhase
 from skaro_core.phases.import_analyze import ImportAnalyzePhase
 from skaro_core.phases.plan import PlanPhase
+from skaro_core.phases.project_fix import ProjectFixPhase
+from skaro_core.phases.project_review import ProjectReviewPhase
 from skaro_core.phases.tests import TestsPhase
 
 __all__ = [
@@ -25,6 +27,8 @@ __all__ = [
     "ImportAnalyzePhase",
     "PlanPhase",
     "ImplementPhase",
+    "ProjectFixPhase",
+    "ProjectReviewPhase",
     "TestsPhase",
     "get_phase",
 ]
@@ -39,6 +43,8 @@ def get_phase(name: str, **kwargs) -> BasePhase:
         "import_analyze": ImportAnalyzePhase,
         "plan": PlanPhase,
         "implement": ImplementPhase,
+        "project_fix": ProjectFixPhase,
+        "project_review": ProjectReviewPhase,
         "tests": TestsPhase,
     }
     cls = phases.get(name)

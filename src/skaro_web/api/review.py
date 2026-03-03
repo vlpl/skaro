@@ -1,0 +1,146 @@
+"""Project Review endpoints: project-wide tests and fix chat."""
+
+from __future__ import annotations
+
+import asyncio
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
+
+from skaro_core.artifacts import ArtifactManager
+from skaro_core.phases.base import BasePhase
+from skaro_web.api.deps import broadcast, get_am, get_project_root, get_ws_manager, llm_phase, ConnectionManager
+from skaro_web.api.schemas import FileApplyBody, ProjectFixBody
+
+router = APIRouter(prefix="/api/review", tags=["review"])
+
+
+@router.post("/tests")
+async def run_review_tests(
+    request: Request,
+    project_root: Path = Depends(get_project_root),
+    ws: ConnectionManager = Depends(get_ws_manager),
+):
+    from skaro_core.phases.project_review import ProjectReviewPhase
+
+    phase = ProjectReviewPhase(project_root=project_root)
+    result = await phase.run()
+    await ws.broadcast({"event": "review:completed"})
+    return {"success": result.success, "message": result.message, "data": result.data}
+
+
+@router.get("/results")
+async def get_review_results(
+    project_root: Path = Depends(get_project_root),
+):
+    from skaro_core.phases.project_review import ProjectReviewPhase
+
+    phase = ProjectReviewPhase(project_root=project_root)
+    results = phase.load_results()
+    return {"results": results}
+
+
+@router.post("/fix")
+async def run_project_fix(
+    payload: ProjectFixBody,
+    project_root: Path = Depends(get_project_root),
+    ws: ConnectionManager = Depends(get_ws_manager),
+):
+    from skaro_core.phases.project_fix import ProjectFixPhase
+
+    phase = ProjectFixPhase(project_root=project_root)
+    async with llm_phase(ws, "project_fix", phase):
+        result = await phase.run(
+            message=payload.message,
+            conversation=payload.conversation,
+            scope_tasks=payload.scope_tasks,
+        )
+    if result.success:
+        await ws.broadcast({"event": "review:fix_response"})
+    return {
+        "success": result.success,
+        "message": result.message,
+        "files": result.data.get("files", {}),
+        "conversation": result.data.get("conversation", []),
+    }
+
+
+@router.post("/fix/apply")
+async def apply_project_fix_file(
+    request: Request,
+    payload: FileApplyBody,
+    project_root: Path = Depends(get_project_root),
+):
+    try:
+        BasePhase._validate_project_path(project_root, payload.filepath)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"success": False, "message": str(e)})
+
+    from skaro_core.phases.project_fix import ProjectFixPhase
+
+    phase = ProjectFixPhase(project_root=project_root)
+    result = phase.apply_file(payload.filepath, payload.content)
+    await broadcast(request, {"event": "review:fix_applied", "file": payload.filepath})
+
+    from skaro_web.api.git import auto_stage_file
+
+    await auto_stage_file(project_root, payload.filepath)
+
+    return {"success": result.success, "message": result.message}
+
+
+@router.get("/fix/conversation")
+async def get_project_fix_conversation(
+    project_root: Path = Depends(get_project_root),
+    am: ArtifactManager = Depends(get_am),
+):
+    from skaro_core.phases.project_fix import ProjectFixPhase
+
+    phase = ProjectFixPhase(project_root=project_root)
+    conversation = phase.load_conversation()
+
+    state = am.get_project_state()
+    task_names = [ts.name for ts in state.tasks]
+    ctx = await asyncio.to_thread(phase._gather_context, task_names)
+    ctx_chars = sum(len(v) for v in ctx.values())
+    conv_chars = sum(len(t.get("content", "")) for t in conversation)
+    est_tokens = (ctx_chars + conv_chars) // 4
+
+    return {
+        "conversation": conversation,
+        "context_tokens": est_tokens,
+    }
+
+
+@router.delete("/fix/conversation")
+async def clear_project_fix_conversation(
+    project_root: Path = Depends(get_project_root),
+):
+    from skaro_core.phases.project_fix import ProjectFixPhase
+
+    phase = ProjectFixPhase(project_root=project_root)
+    phase.clear_conversation()
+    return {"success": True}
+
+
+@router.get("/scope")
+async def get_review_scope(
+    am: ArtifactManager = Depends(get_am),
+):
+    state = am.get_project_state()
+    milestones = am.list_milestones()
+
+    tasks_by_milestone: dict[str, list[str]] = {}
+    for ts in state.tasks:
+        tasks_by_milestone.setdefault(ts.milestone, []).append(ts.name)
+
+    return {
+        "milestones": [
+            {
+                "slug": m,
+                "tasks": tasks_by_milestone.get(m, []),
+            }
+            for m in milestones
+        ],
+    }

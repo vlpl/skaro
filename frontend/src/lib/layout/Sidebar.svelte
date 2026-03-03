@@ -3,7 +3,7 @@
 	import { page } from '$app/stores';
 	import { status } from '$lib/stores/statusStore.js';
 	import { theme } from '$lib/stores/themeStore.js';
-	import { Settings, PanelLeft } from 'lucide-svelte';
+	import { Settings, PanelLeft, Info, BookOpen, ExternalLink } from 'lucide-svelte';
 	import LayoutGridAnimated from '$lib/ui/icons/LayoutGridAnimated.svelte';
 	import FileTextAnimated from '$lib/ui/icons/FileTextAnimated.svelte';
 	import LayersAnimated from '$lib/ui/icons/LayersAnimated.svelte';
@@ -11,6 +11,7 @@
 	import PackageOpenAnimated from '$lib/ui/icons/PackageOpenAnimated.svelte';
 	import GitBranchAnimated from '$lib/ui/icons/GitBranchAnimated.svelte';
 	import FolderOpenCrossfade from '$lib/ui/icons/FolderOpenCrossfade.svelte';
+	import ShieldCheckAnimated from '$lib/ui/icons/ShieldCheckAnimated.svelte';
 
 	const STORAGE_KEY = 'skaro:sidebar-collapsed';
 
@@ -21,6 +22,7 @@
 		{ id: 'adr', icon: FolderOpenCrossfade, labelKey: 'nav.adr' },
 		{ id: 'devplan', icon: MapFoldFlipAnimated, labelKey: 'nav.devplan' },
 		{ id: 'tasks', icon: PackageOpenAnimated, labelKey: 'nav.tasks' },
+		{ id: 'review', icon: ShieldCheckAnimated, labelKey: 'nav.review' },
 		{ id: 'git', icon: GitBranchAnimated, labelKey: 'nav.git' },
 	];
 
@@ -64,6 +66,11 @@
 		if (id === 'tasks') return s.tasks?.length ? { text: s.tasks.length, cls: '' } : null;
 		if (id === 'adr') return s.adr_count ? { text: s.adr_count, cls: '' } : null;
 		if (id === 'devplan') return s.has_devplan ? { text: '✓', cls: 'ok' } : null;
+		if (id === 'review') {
+			if (s.review_passed === true) return { text: '✓', cls: 'ok' };
+			if (s.review_passed === false) return { text: '!', cls: 'warn' };
+			return null;
+		}
 		if (id === 'git') return s.git_staged_count ? { text: s.git_staged_count, cls: 'warn' } : null;
 		return null;
 	}
@@ -103,6 +110,38 @@
 				{/if}
 			</a>
 		{/each}
+	</div>
+
+	<!-- About & Docs — separated by 1rem top margin -->
+	<div class="nav-aux">
+		<!-- About: internal page -->
+		<a
+			class="nav-item"
+			class:active={isActive('about')}
+			href="/about"
+			data-sveltekit-noscroll
+			title={collapsed ? $t('nav.about') : undefined}
+		>
+			<span class="icon"><Info size={18} strokeWidth={1.5} /></span>
+			{#if !collapsed}
+				<span class="label">{$t('nav.about')}</span>
+			{/if}
+		</a>
+
+		<!-- Docs: external link, ExternalLink arrow on the right -->
+		<a
+			class="nav-item"
+			href="https://docs.skaro.dev"
+			target="_blank"
+			rel="noopener noreferrer"
+			title={collapsed ? $t('nav.docs') : undefined}
+		>
+			<span class="icon"><BookOpen size={18} strokeWidth={1.5} /></span>
+			{#if !collapsed}
+				<span class="label">{$t('nav.docs')}</span>
+				<span class="ext-icon"><ExternalLink size={13} strokeWidth={1.75} /></span>
+			{/if}
+		</a>
 	</div>
 
 	<div class="nav-bottom">
@@ -289,4 +328,34 @@
 		color: var(--yl);
 		background: rgba(187, 181, 41, .1);
 	}
+	/* ── Nav aux: About + Docs ── */
+	.nav-aux {
+		margin-top: 1rem;
+		padding: 0.5rem 0.625rem;
+		gap: 0.075rem;
+		display: flex;
+		flex-direction: column;
+		border-top: 0.0625rem solid var(--bd);
+		flex-shrink: 0;
+	}
+
+	.collapsed .nav-aux {
+		padding: 0.25rem 0.375rem;
+		align-items: center;
+	}
+
+	/* External-link arrow — same zone as badges */
+	.ext-icon {
+		margin-left: auto;
+		display: flex;
+		align-items: center;
+		color: var(--dm);
+		flex-shrink: 0;
+		opacity: 0.7;
+	}
+
+	.nav-item:hover .ext-icon {
+		opacity: 1;
+	}
+
 </style>

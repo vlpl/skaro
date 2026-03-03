@@ -184,6 +184,17 @@ export const api = {
 	loadFixConversation: (/** @type {string} */ name, signal) => get(`/api/tasks/${name}/fix/conversation`, signal),
 	clearFixConversation: (/** @type {string} */ name, signal) => del(`/api/tasks/${name}/fix/conversation`, signal),
 
+	// Project Review
+	runReviewTests: (signal) => post('/api/review/tests', {}, signal),
+	getReviewResults: (signal) => get('/api/review/results', signal),
+	getReviewScope: (signal) => get('/api/review/scope', signal),
+	sendProjectFix: (/** @type {string} */ message, /** @type {any[]} */ conversation, /** @type {string[]} */ scope_tasks, signal) =>
+		post('/api/review/fix', { message, conversation, scope_tasks }, signal),
+	applyProjectFixFile: (/** @type {string} */ filepath, /** @type {string} */ content, signal) =>
+		post('/api/review/fix/apply', { filepath, content }, signal),
+	loadProjectFixConversation: (signal) => get('/api/review/fix/conversation', signal),
+	clearProjectFixConversation: (signal) => del('/api/review/fix/conversation', signal),
+
 	// Config
 	getConfig: (signal) => get('/api/config', signal),
 	saveConfig: (/** @type {any} */ payload, signal) => put('/api/config', payload, signal),
