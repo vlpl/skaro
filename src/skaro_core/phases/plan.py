@@ -152,7 +152,18 @@ class PlanPhase(BasePhase):
         if start is None:
             return []
 
-        section = "\n".join(lines[start:end]).strip()
+        section_lines = lines[start:end]
+
+        # Strip code fences that LLM may wrap around the YAML block
+        # e.g. ```yaml ... ``` or bare ``` ... ```
+        cleaned = []
+        for line in section_lines:
+            s = line.strip()
+            if re.match(r"^```(?:yaml|yml)?\s*$", s):
+                continue
+            cleaned.append(line)
+
+        section = "\n".join(cleaned).strip()
         if not section:
             return []
 
@@ -183,14 +194,30 @@ class PlanPhase(BasePhase):
     @staticmethod
     def _strip_fences(text: str) -> str:
         text = text.strip()
-        # Strip outer ```markdown ... ``` wrapper (handles whitespace/newlines)
-        m = re.match(
-            r"^```(?:markdown|md)?\s*\n([\s\S]*?)\n\s*```\s*$",
-            text,
-        )
-        if m:
-            return m.group(1).strip()
-        return text
+        lines = text.splitlines()
+
+        # Find first opening fence (```markdown, ```md, or bare ```)
+        open_idx = None
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if re.match(r"^```(?:markdown|md)?\s*$", stripped):
+                open_idx = i
+                break
+
+        if open_idx is None:
+            return text
+
+        # Find last closing fence (bare ``` at end of text)
+        close_idx = None
+        for i in range(len(lines) - 1, open_idx, -1):
+            if lines[i].strip() == "```":
+                close_idx = i
+                break
+
+        if close_idx is None or close_idx <= open_idx:
+            return text
+
+        return "\n".join(lines[open_idx + 1 : close_idx]).strip()
 
 
 def _try_yaml_parse(section: str) -> list[dict[str, str]]:

@@ -36,6 +36,23 @@ Rules:
 Do NOT add stages not described in the specification. Do NOT over-engineer.
 Do NOT create stages with fewer than 3 output files unless there is a strong reason.
 
+VERIFY COMMANDS — MANDATORY:
+At the END of plan.md (after all stages), add a `## Verify` section with shell commands
+that will be run automatically after implementation to validate correctness.
+Choose commands specific to THIS task's files and modules. Format as YAML list:
+```
+## Verify
+- name: Unit tests
+  command: pytest tests/test_auth.py -v
+- name: Type check
+  command: mypy src/auth/
+- name: Lint
+  command: ruff check src/auth/
+```
+Good verify commands: run tests for specific files, type-check specific modules, lint, build.
+Bad verify commands: generic "pytest" with no path, "npm test" when the task only touches one module.
+If the task produces no testable output (e.g. documentation only), you may omit this section.
+
 Output TWO documents separated by the marker `---TASKS---`:
 
 **Document 1: plan.md** — stages with full details:
@@ -60,6 +77,15 @@ Output TWO documents separated by the marker `---TASKS---`:
 - [ ] check 1
 - [ ] check 2
 **Risks:** ...
+```
+
+At the very end of plan.md, after the last stage:
+```
+## Verify
+- name: Unit tests
+  command: pytest tests/test_<module>.py -v
+- name: Type check
+  command: mypy src/<module>/
 ```
 
 **Document 2: tasks.md** — flat task list with checkboxes:
