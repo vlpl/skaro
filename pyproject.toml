@@ -61,6 +61,7 @@ packages = ["src/skaro_core", "src/skaro_cli", "src/skaro_web"]
 # after pip install.
 [tool.hatch.build.targets.wheel.force-include]
 "templates" = "skaro_core/templates"
+"src/skaro_web/static/_app" = "skaro_web/static/_app"
 
 [tool.hatch.build.hooks.custom]
 path = "build_hooks/frontend_hook.py"
