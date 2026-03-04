@@ -17,12 +17,10 @@ from datetime import datetime
 from typing import Any
 
 from skaro_core.artifacts import Phase, Status
+from skaro_core.phases._command_runner import CommandRunnerMixin
 from skaro_core.phases.base import BasePhase, PhaseResult
 
-_COMMAND_TIMEOUT = 120
-
-
-class ProjectReviewPhase(BasePhase):
+class ProjectReviewPhase(CommandRunnerMixin, BasePhase):
     phase_name = "project_review"
 
     async def run(self, task: str | None = None, **kwargs: Any) -> PhaseResult:
@@ -156,47 +154,3 @@ class ProjectReviewPhase(BasePhase):
         })
 
         return checks
-
-    async def _run_commands(self, commands: list[dict[str, str]]) -> list[dict]:
-        results: list[dict] = []
-        for cmd_def in commands:
-            if not cmd_def.get("command", "").strip():
-                continue
-            result = await self._execute_command(cmd_def["name"], cmd_def["command"])
-            results.append(result)
-        return results
-
-    async def _execute_command(self, name: str, command: str) -> dict:
-        try:
-            proc = await asyncio.create_subprocess_shell(
-                command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=str(self.artifacts.root),
-            )
-            try:
-                stdout, stderr = await asyncio.wait_for(
-                    proc.communicate(), timeout=_COMMAND_TIMEOUT
-                )
-            except asyncio.TimeoutError:
-                proc.kill()
-                await proc.communicate()
-                return {
-                    "name": name, "command": command, "success": False,
-                    "exit_code": -1, "stdout": "",
-                    "stderr": f"Command timed out after {_COMMAND_TIMEOUT}s",
-                }
-
-            return {
-                "name": name,
-                "command": command,
-                "success": proc.returncode == 0,
-                "exit_code": proc.returncode,
-                "stdout": stdout.decode("utf-8", errors="replace")[-5000:],
-                "stderr": stderr.decode("utf-8", errors="replace")[-5000:],
-            }
-        except Exception as exc:
-            return {
-                "name": name, "command": command, "success": False,
-                "exit_code": -1, "stdout": "", "stderr": str(exc),
-            }

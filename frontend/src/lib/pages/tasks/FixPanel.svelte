@@ -1,14 +1,10 @@
 <script>
 	import { t } from '$lib/i18n/index.js';
-	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/stores';
 	import { api } from '$lib/api/client.js';
 	import { status } from '$lib/stores/statusStore.js';
-	import { addLog, addError } from '$lib/stores/logStore.js';
-	import { Loader2 } from 'lucide-svelte';
-	import ChatMessage from './ChatMessage.svelte';
-	import ComposeBox from './ComposeBox.svelte';
-	import DiffModal from '$lib/ui/DiffModal.svelte';
+	import { addLog } from '$lib/stores/logStore.js';
+	import FixChat from '$lib/ui/FixChat.svelte';
 
 	let { task = '' } = $props();
 
@@ -39,299 +35,35 @@
 
 	let modelDisplay = $derived(getRoleInfo($status, currentTab));
 
-	let message = $state('');
-	let loading = $state(false);
-	let conversationLoading = $state(false);
-	let conversation = $state([]);
-	let contextTokens = $state(0);
-	let initialLoaded = $state(false);
-	let appliedFiles = $state({});
-	let diffModal = $state(null);
-
-	/** @type {AbortController | null} */
-	let abortController = $state(null);
-
-	$effect(() => {
-		if (task && !initialLoaded) {
-			initialLoaded = true;
-			loadConversation();
-		}
-	});
-
-	// Auto-scroll when conversation changes
-	$effect(() => {
-		void conversation.length;
-		void loading;
-		scrollToEnd('smooth');
-	});
-
-	function scrollToEnd(behavior = 'instant') {
-		requestAnimationFrame(() => {
-			const main = document.querySelector('.main');
-			if (main) {
-				main.scrollTo({ top: main.scrollHeight, behavior });
-			}
-		});
+	// API callbacks bound to current task
+	function loadConversationFn() {
+		return api.loadFixConversation(task);
 	}
 
-	// Scroll to bottom on mount (when chat tab is first opened)
-	onMount(() => {
-		requestAnimationFrame(() => {
-			requestAnimationFrame(() => {
-				scrollToEnd();
-			});
-		});
-	});
-
-	// Listen for prefill events from TestsPanel
-	function handlePrefill(e) {
-		const text = e.detail?.message;
-		if (text) {
-			message = text;
-			scrollToEnd('smooth');
-		}
+	function sendMessageFn(text, history, signal) {
+		return api.sendFix(task, text, history, signal);
 	}
 
-	onMount(() => {
-		window.addEventListener('skaro:prefill-fix', handlePrefill);
-	});
-
-	onDestroy(() => {
-		window.removeEventListener('skaro:prefill-fix', handlePrefill);
-	});
-
-	async function loadConversation() {
-		conversationLoading = true;
-		try {
-			const data = await api.loadFixConversation(task);
-			if (data.conversation?.length > 0) conversation = data.conversation;
-			contextTokens = data.context_tokens || 0;
-		} catch {
-			// Empty conversation is fine
-		}
-		conversationLoading = false;
+	function applyFileFn(filepath, content) {
+		return api.applyFixFile(task, filepath, content);
 	}
 
-	let conversationTokens = $derived(
-		Math.round(conversation.reduce((sum, t) => sum + (t.content?.length || 0), 0) / 4)
-	);
-	let messageTokens = $derived(Math.round(message.length / 4));
-	let totalTokens = $derived(contextTokens + conversationTokens + messageTokens);
-	let tokenDisplay = $derived.by(() => {
-		const k = totalTokens / 1000;
-		return k >= 1 ? `~${k.toFixed(0)}k ${$t('fix.tokens')}` : `~${totalTokens} ${$t('fix.tokens')}`;
-	});
-
-	async function sendMessage() {
-		const text = message.trim();
-		if (!text || loading) return;
-		loading = true;
-		message = '';
-		conversation = [...conversation, { role: 'user', content: text }];
-
-		const controller = new AbortController();
-		abortController = controller;
-
-		try {
-			const history = conversation.slice(0, -1).map((turn) => ({ role: turn.role, content: turn.content }));
-			const result = await api.sendFix(task, text, history, controller.signal);
-			if (result.success) {
-				conversation = [...conversation, { role: 'assistant', content: result.message, files: result.files || {}, turnIndex: conversation.length }];
-				addLog($t('log.fix_response', { name: task }));
-			} else {
-				addError(result.message || 'Fix request failed', 'fix');
-			}
-		} catch (e) {
-			if (e.name === 'AbortError') {
-				addLog($t('fix.cancelled'));
-			} else {
-				addError(e.message, 'sendFix');
-			}
-		}
-		abortController = null;
-		loading = false;
+	function clearConversationFn() {
+		return api.clearFixConversation(task);
 	}
 
-	function cancelRequest() {
-		if (abortController) {
-			abortController.abort();
-		}
-	}
-
-	async function applyFile(turnIndex, filepath, content) {
-		try {
-			const result = await api.applyFixFile(task, filepath, content);
-			if (result.success) {
-				if (!appliedFiles[turnIndex]) appliedFiles[turnIndex] = {};
-				appliedFiles[turnIndex][filepath] = true;
-				appliedFiles = { ...appliedFiles };
-				addLog($t('log.fix_applied', { file: filepath }));
-				diffModal = null;
-			} else { addError(result.message, 'applyFix'); }
-		} catch (e) { addError(e.message, 'applyFix'); }
-	}
-
-	function openDiff(turnIndex, filepath, fileData) {
-		diffModal = { filepath, oldContent: fileData.old, newContent: fileData.new, isNew: fileData.is_new, applied: !!(appliedFiles[turnIndex]?.[filepath]), turnIndex };
-	}
-
-	async function clearConversation() {
-		conversation = []; appliedFiles = {}; message = '';
-		try { await api.clearFixConversation(task); } catch {}
+	function onSendSuccess() {
+		addLog($t('log.fix_response', { name: task }));
 	}
 </script>
 
-{#if conversationLoading}
-	<div class="fix-conversation">
-		<!-- Skeleton: user message -->
-		<div class="turn turn-user skel-turn">
-			<div class="skel-label skel-pulse" style="width: 3rem"></div>
-			<div class="skel-body-user">
-				<div class="skel-line skel-pulse" style="width: 90%"></div>
-				<div class="skel-line skel-pulse" style="width: 70%"></div>
-			</div>
-		</div>
-		<!-- Skeleton: assistant message -->
-		<div class="turn turn-assistant skel-turn">
-			<div class="skel-label skel-pulse" style="width: 8rem"></div>
-			<div class="skel-body-assistant">
-				<div class="skel-line skel-pulse" style="width: 100%"></div>
-				<div class="skel-line skel-pulse" style="width: 95%"></div>
-				<div class="skel-line skel-pulse" style="width: 60%"></div>
-				<div class="skel-line skel-pulse" style="width: 85%"></div>
-				<div class="skel-line skel-pulse" style="width: 40%"></div>
-			</div>
-			<div class="skel-file skel-pulse"></div>
-		</div>
-		<!-- Skeleton: user message -->
-		<div class="turn turn-user skel-turn">
-			<div class="skel-label skel-pulse" style="width: 3rem"></div>
-			<div class="skel-body-user">
-				<div class="skel-line skel-pulse" style="width: 80%"></div>
-			</div>
-		</div>
-		<!-- Skeleton: assistant message -->
-		<div class="turn turn-assistant skel-turn">
-			<div class="skel-label skel-pulse" style="width: 8rem"></div>
-			<div class="skel-body-assistant">
-				<div class="skel-line skel-pulse" style="width: 100%"></div>
-				<div class="skel-line skel-pulse" style="width: 75%"></div>
-				<div class="skel-line skel-pulse" style="width: 90%"></div>
-			</div>
-		</div>
-	</div>
-{:else if conversation.length > 0}
-	<div class="fix-conversation">
-		{#each conversation as turn, i}
-			<ChatMessage {turn} index={i} {appliedFiles} {modelDisplay} onOpenDiff={openDiff} />
-		{/each}
-		{#if loading}
-			<div class="turn turn-assistant">
-				<div class="turn-label">{modelDisplay || $t('fix.llm')}</div>
-				<div class="thinking"><Loader2 size={14} class="spin" /> {$t('fix.thinking')}</div>
-			</div>
-		{/if}
-	</div>
-{/if}
-
-{#if diffModal}
-	<DiffModal
-		filepath={diffModal.filepath}
-		oldContent={diffModal.oldContent}
-		newContent={diffModal.newContent}
-		isNew={diffModal.isNew}
-		applied={diffModal.applied}
-		onApply={() => applyFile(diffModal.turnIndex, diffModal.filepath, diffModal.newContent)}
-		onClose={() => diffModal = null}
-	/>
-{/if}
-
-<div class="fix-bar">
-	<ComposeBox bind:message {loading} {tokenDisplay} {modelDisplay} onSend={sendMessage} onCancel={cancelRequest} />
-</div>
-
-<style>
-	.fix-conversation {
-		padding-bottom: 1rem;
-	}
-
-	.fix-bar {
-		position: sticky;
-		bottom: 0;
-		background: linear-gradient(0deg, rgba(38, 38, 38, 1) 0%, rgba(38, 38, 38, 1) 77%, rgba(38, 38, 38, 0) 100%);
-		padding: 0;
-		z-index: 10;
-	}
-
-	.thinking {
-		display: flex;
-		align-items: center;
-		gap: 0.375rem;
-		color: var(--dm);
-		font-size: 0.8125rem;
-	}
-
-	.turn-label {
-		font-size: 0.6875rem;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: .05em;
-		margin-bottom: 0.25rem;
-		color: var(--or);
-	}
-
-	/* ── Skeleton ── */
-	.skel-turn {
-		pointer-events: none;
-	}
-
-	.skel-pulse {
-		background: var(--bg2);
-		border-radius: var(--r);
-		animation: skel-shimmer 1.5s ease-in-out infinite;
-	}
-
-	@keyframes skel-shimmer {
-		0%, 100% { opacity: .4; }
-		50% { opacity: .15; }
-	}
-
-	.skel-label {
-		height: .75rem;
-		margin-bottom: .5rem;
-		border-radius: .25rem;
-	}
-
-	.skel-line {
-		height: .85rem;
-		margin-bottom: .5rem;
-		border-radius: .25rem;
-	}
-
-	.skel-body-user {
-		max-width: 80%;
-		margin-left: auto;
-		background: var(--bg2);
-		border-radius: var(--r);
-		padding: 1.2rem;
-	}
-
-	.skel-body-user .skel-line {
-		background: var(--bg3);
-	}
-
-	.skel-body-assistant {
-		padding: .25rem 0;
-	}
-
-	.skel-file {
-		height: 2rem;
-		width: 14rem;
-		margin-top: .5rem;
-		border-radius: var(--r);
-	}
-
-	.turn-user .skel-label {
-		margin-left: auto;
-	}
-</style>
+<FixChat
+	{modelDisplay}
+	prefillEvent="skaro:prefill-fix"
+	errorSource="fix"
+	{loadConversationFn}
+	{sendMessageFn}
+	{applyFileFn}
+	{clearConversationFn}
+	{onSendSuccess}
+/>

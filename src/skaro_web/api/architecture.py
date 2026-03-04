@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import json
 import re as _re
-from datetime import date as _date
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 
@@ -120,37 +118,16 @@ async def apply_arch_review(
     if not review.strip():
         return {"success": False, "message": "No review found. Run a review first."}
 
-    prompts_dir = Path(__file__).parent.parent.parent / "skaro_core" / "prompts"
-    prompt_path = prompts_dir / "architecture-apply.md"
-    if prompt_path.exists():
-        prompt = prompt_path.read_text(encoding="utf-8")
-    else:
-        prompt = (
-            "Apply review recommendations to this architecture.\n\n"
-            "## Current Architecture\n{architecture}\n\n"
-            "## Review\n{review}\n\n"
-            "Return the complete improved architecture document."
-        )
+    from skaro_core.phases.architecture import ArchitecturePhase
 
-    prompt = prompt.replace("{architecture}", architecture).replace("{review}", review)
-
-    from skaro_core.phases.base import BasePhase
-
-    class _ApplyReview(BasePhase):
-        phase_name = "architecture"
-
-        async def run(self, **kw: Any) -> None:
-            pass
-
-    phase = _ApplyReview(project_root=project_root)
-    messages = phase._build_messages(prompt)
+    phase = ArchitecturePhase(project_root=project_root)
 
     async with llm_phase(ws, "architecture-apply", phase):
-        response = await phase._stream_collect(messages)
+        response = await phase.apply_review(architecture, review)
 
     return {
         "success": True,
-        "proposed_architecture": response.strip(),
+        "proposed_architecture": response,
     }
 
 
@@ -299,48 +276,15 @@ async def generate_adrs(
     if tpl_path.exists():
         adr_template = tpl_path.read_text(encoding="utf-8")
 
-    prompts_dir = Path(__file__).parent.parent.parent / "skaro_core" / "prompts"
-    prompt_path = prompts_dir / "adr-generate.md"
-    if prompt_path.exists():
-        prompt = prompt_path.read_text(encoding="utf-8")
-    else:
-        prompt = (
-            "Generate ADRs for this architecture. Return JSON array with "
-            "number, title, content fields.\n\nArchitecture:\n{architecture}"
-        )
+    from skaro_core.phases.architecture import ArchitecturePhase
 
-    today = _date.today().isoformat()
-    review_section = f"Architecture review feedback:\n{review}" if review.strip() else ""
-    prompt = (
-        prompt
-        .replace("{architecture}", architecture)
-        .replace("{review_section}", review_section)
-        .replace("{adr_template}", adr_template)
-        .replace("{today}", today)
-    )
+    phase = ArchitecturePhase(project_root=project_root)
 
-    from skaro_core.phases.base import BasePhase
-
-    class _AdrGen(BasePhase):
-        phase_name = "architecture"
-
-        async def run(self, **kw: Any) -> None:
-            pass
-
-    gen = _AdrGen(project_root=project_root)
-    messages = gen._build_messages(prompt)
-
-    async with llm_phase(ws, "adr-generate", gen):
-        response = await gen._stream_collect(messages)
-
-    json_match = _re.search(r"```json\s*\n([\s\S]*?)\n\s*```", response)
-    if not json_match:
-        return {"success": False, "message": "LLM did not return valid JSON.", "raw": response}
-
-    try:
-        adrs_data = json.loads(json_match.group(1))
-    except json.JSONDecodeError as e:
-        return {"success": False, "message": f"JSON parse error: {e}", "raw": response}
+    async with llm_phase(ws, "adr-generate", phase):
+        try:
+            adrs_data = await phase.generate_adrs(architecture, review, adr_template)
+        except (ValueError, json.JSONDecodeError) as e:
+            return {"success": False, "message": str(e)}
 
     existing = am.list_adrs()
     start_num = len(existing) + 1

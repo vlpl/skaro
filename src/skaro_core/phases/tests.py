@@ -19,6 +19,8 @@ from typing import Any
 
 import yaml
 
+from skaro_core.phases._command_runner import CommandRunnerMixin
+from skaro_core.phases._plan_utils import count_plan_stages
 from skaro_core.phases.base import BasePhase, PhaseResult, SOURCE_EXTENSIONS, SKIP_DIRS
 
 # Patterns for detecting test files
@@ -29,11 +31,7 @@ _TEST_FILE_PATTERNS = [
     re.compile(r".*\.spec\.(js|ts|jsx|tsx)$", re.IGNORECASE),
 ]
 
-# Max time for a single verify command (seconds)
-_COMMAND_TIMEOUT = 120
-
-
-class TestsPhase(BasePhase):
+class TestsPhase(CommandRunnerMixin, BasePhase):
     phase_name = "tests"
 
     async def run(self, task: str | None = None, **kwargs: Any) -> PhaseResult:
@@ -105,20 +103,8 @@ class TestsPhase(BasePhase):
 
     def _load_task_commands(self, task: str) -> list[dict[str, str]]:
         """Load task-specific verify commands from verify.yaml."""
-        verify_path = self.artifacts.find_task_dir(task) / "verify.yaml"
-        if not verify_path.exists():
-            return []
-        try:
-            data = yaml.safe_load(verify_path.read_text(encoding="utf-8"))
-            if isinstance(data, list):
-                return [
-                    {"name": str(c.get("name", "")), "command": str(c.get("command", ""))}
-                    for c in data
-                    if isinstance(c, dict) and c.get("command", "").strip()
-                ]
-        except (yaml.YAMLError, OSError):
-            pass
-        return []
+        task_dir = self.artifacts.find_task_dir(task)
+        return self.load_task_commands_static(task_dir)
 
     @staticmethod
     def load_task_commands_static(task_dir: Path) -> list[dict[str, str]]:
@@ -221,7 +207,7 @@ class TestsPhase(BasePhase):
 
         # Check 4: all stages completed
         completed = self.artifacts.find_completed_stages(task)
-        plan_stages = self._count_plan_stages(plan)
+        plan_stages = count_plan_stages(plan)
         all_stages_done = plan_stages > 0 and len(completed) >= plan_stages
         checks.append({
             "id": "stages_complete",
@@ -251,70 +237,3 @@ class TestsPhase(BasePhase):
                     paths.append(fp)
 
         return paths
-
-    @staticmethod
-    def _count_plan_stages(plan: str) -> int:
-        count = 0
-        for line in plan.splitlines():
-            s = line.strip().lower()
-            if s.startswith(("#", "##")) and any(w in s for w in ["stage", "этап"]):
-                count += 1
-        return max(count, 1) if count > 0 else 0
-
-    # ── Command execution ───────────────────────────
-
-    async def _run_commands(self, commands: list[dict[str, str]]) -> list[dict]:
-        """Run a list of verify commands and return results."""
-        results: list[dict] = []
-        for cmd_def in commands:
-            if not cmd_def.get("command", "").strip():
-                continue
-            result = await self._execute_command(cmd_def["name"], cmd_def["command"])
-            results.append(result)
-        return results
-
-    async def _execute_command(self, name: str, command: str) -> dict:
-        """Execute a single shell command and capture output."""
-        try:
-            proc = await asyncio.create_subprocess_shell(
-                command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=str(self.artifacts.root),
-            )
-            try:
-                stdout, stderr = await asyncio.wait_for(
-                    proc.communicate(), timeout=_COMMAND_TIMEOUT
-                )
-            except asyncio.TimeoutError:
-                proc.kill()
-                await proc.communicate()
-                return {
-                    "name": name,
-                    "command": command,
-                    "success": False,
-                    "exit_code": -1,
-                    "stdout": "",
-                    "stderr": f"Command timed out after {_COMMAND_TIMEOUT}s",
-                }
-
-            stdout_text = stdout.decode("utf-8", errors="replace")[-5000:]
-            stderr_text = stderr.decode("utf-8", errors="replace")[-5000:]
-
-            return {
-                "name": name,
-                "command": command,
-                "success": proc.returncode == 0,
-                "exit_code": proc.returncode,
-                "stdout": stdout_text,
-                "stderr": stderr_text,
-            }
-        except Exception as exc:
-            return {
-                "name": name,
-                "command": command,
-                "success": False,
-                "exit_code": -1,
-                "stdout": "",
-                "stderr": str(exc),
-            }

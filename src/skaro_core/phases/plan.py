@@ -7,6 +7,7 @@ from typing import Any
 
 import yaml
 
+from skaro_core.phases._plan_utils import count_plan_stages
 from skaro_core.phases.base import BasePhase, PhaseResult
 
 
@@ -114,7 +115,7 @@ class PlanPhase(BasePhase):
             created.append(str(verify_path))
 
         # Count stages
-        stage_count = self._count_stages(plan_content)
+        stage_count = max(count_plan_stages(plan_content), 1)
 
         return PhaseResult(
             success=True,
@@ -181,15 +182,6 @@ class PlanPhase(BasePhase):
                 if cmd:
                     commands.append({"name": cmd.split()[0], "command": cmd})
         return commands
-
-    @staticmethod
-    def _count_stages(plan: str) -> int:
-        count = 0
-        for line in plan.splitlines():
-            s = line.strip().lower()
-            if s.startswith(("#", "##")) and any(w in s for w in ["stage", "этап"]):
-                count += 1
-        return max(count, 1)
 
     @staticmethod
     def _strip_fences(text: str) -> str:

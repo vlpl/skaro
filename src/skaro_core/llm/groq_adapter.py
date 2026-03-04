@@ -16,7 +16,7 @@ from typing import AsyncIterator
 import openai
 
 from skaro_core.config import LLMConfig
-from skaro_core.llm.base import BaseLLMAdapter, LLMError, LLMMessage, LLMResponse
+from skaro_core.llm.base import BaseLLMAdapter, LLMError, LLMMessage, LLMResponse, openai_wrap_error
 
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
@@ -31,6 +31,9 @@ class GroqAdapter(BaseLLMAdapter):
             base_url=config.base_url or GROQ_BASE_URL,
         )
 
+    def _wrap_error(self, exc: Exception) -> LLMError:
+        return openai_wrap_error(exc, "groq")
+
     async def complete(self, messages: list[LLMMessage]) -> LLMResponse:
         oai = [{"role": m.role, "content": m.content} for m in messages]
         try:
@@ -40,31 +43,11 @@ class GroqAdapter(BaseLLMAdapter):
                 temperature=self.config.temperature,
                 messages=oai,
             )
-        except openai.RateLimitError as e:
-            raise LLMError(
-                f"Groq rate limit exceeded. {e.message if hasattr(e, 'message') else str(e)}",
-                provider="groq",
-                retriable=True,
-            ) from e
-        except openai.AuthenticationError as e:
-            raise LLMError(
-                f"Groq authentication failed (401). Check your API key in Settings.",
-                provider="groq",
-                status_code=401,
-            ) from e
-        except openai.PermissionDeniedError as e:
-            raise LLMError(
-                f"Groq permission denied (403). Your API key may lack required permissions.",
-                provider="groq",
-                status_code=403,
-            ) from e
-        except openai.APIError as e:
-            raise LLMError(
-                f"Groq API error: {e.message if hasattr(e, 'message') else str(e)}",
-                provider="groq",
-            ) from e
+        except LLMError:
+            raise
         except Exception as e:
-            raise LLMError(f"Groq request failed: {e}", provider="groq") from e
+            raise self._wrap_error(e) from e
+
         usage = None
         if resp.usage:
             usage = {
@@ -88,27 +71,11 @@ class GroqAdapter(BaseLLMAdapter):
                 stream=True,
                 stream_options={"include_usage": True},
             )
-        except openai.RateLimitError as e:
-            raise LLMError(
-                f"Groq rate limit exceeded. {e.message if hasattr(e, 'message') else str(e)}",
-                provider="groq", retriable=True,
-            ) from e
-        except openai.AuthenticationError as e:
-            raise LLMError(
-                f"Groq authentication failed (401). Check your API key in Settings.",
-                provider="groq",
-                status_code=401,
-            ) from e
-        except openai.PermissionDeniedError as e:
-            raise LLMError(
-                f"Groq permission denied (403). Your API key may lack required permissions.",
-                provider="groq",
-                status_code=403,
-            ) from e
-        except openai.APIError as e:
-            raise LLMError(f"Groq API error: {e.message if hasattr(e, 'message') else str(e)}", provider="groq") from e
+        except LLMError:
+            raise
         except Exception as e:
-            raise LLMError(f"Groq request failed: {e}", provider="groq") from e
+            raise self._wrap_error(e) from e
+
         async for chunk in stream:
             if chunk.choices and chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content

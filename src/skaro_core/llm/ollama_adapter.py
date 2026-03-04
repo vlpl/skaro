@@ -22,6 +22,19 @@ class OllamaAdapter(BaseLLMAdapter):
     def _validate_api_key(self) -> None:
         pass  # Ollama doesn't need a key
 
+    def _wrap_error(self, exc: Exception) -> LLMError:
+        if isinstance(exc, httpx.ConnectError):
+            return LLMError(
+                f"Cannot connect to Ollama at {self.base_url}. Is Ollama running?",
+                provider="ollama",
+            )
+        if isinstance(exc, httpx.HTTPStatusError):
+            return LLMError(
+                f"Ollama HTTP error {exc.response.status_code}: {exc.response.text[:200]}",
+                provider="ollama",
+            )
+        return LLMError(f"Ollama request failed: {exc}", provider="ollama")
+
     def _to_messages(self, messages: list[LLMMessage]) -> list[dict]:
         return [{"role": m.role, "content": m.content} for m in messages]
 
@@ -42,12 +55,10 @@ class OllamaAdapter(BaseLLMAdapter):
                 )
                 resp.raise_for_status()
                 data = resp.json()
-        except httpx.ConnectError as e:
-            raise LLMError(f"Cannot connect to Ollama at {self.base_url}. Is Ollama running?", provider="ollama") from e
-        except httpx.HTTPStatusError as e:
-            raise LLMError(f"Ollama HTTP error {e.response.status_code}: {e.response.text[:200]}", provider="ollama") from e
+        except LLMError:
+            raise
         except Exception as e:
-            raise LLMError(f"Ollama request failed: {e}", provider="ollama") from e
+            raise self._wrap_error(e) from e
 
         return LLMResponse(
             content=data.get("message", {}).get("content", ""),
@@ -91,11 +102,7 @@ class OllamaAdapter(BaseLLMAdapter):
                                 break
                         except json.JSONDecodeError:
                             continue
-        except httpx.ConnectError as e:
-            raise LLMError(f"Cannot connect to Ollama at {self.base_url}. Is Ollama running?", provider="ollama") from e
-        except httpx.HTTPStatusError as e:
-            raise LLMError(f"Ollama HTTP error {e.response.status_code}", provider="ollama") from e
         except LLMError:
             raise
         except Exception as e:
-            raise LLMError(f"Ollama stream failed: {e}", provider="ollama") from e
+            raise self._wrap_error(e) from e

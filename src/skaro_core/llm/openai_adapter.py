@@ -7,7 +7,7 @@ from typing import AsyncIterator
 import openai
 
 from skaro_core.config import LLMConfig
-from skaro_core.llm.base import BaseLLMAdapter, LLMError, LLMMessage, LLMResponse
+from skaro_core.llm.base import BaseLLMAdapter, LLMError, LLMMessage, LLMResponse, openai_wrap_error
 
 
 class OpenAIAdapter(BaseLLMAdapter):
@@ -19,6 +19,9 @@ class OpenAIAdapter(BaseLLMAdapter):
             kwargs["base_url"] = config.base_url
         self.client = openai.AsyncOpenAI(**kwargs)
 
+    def _wrap_error(self, exc: Exception) -> LLMError:
+        return openai_wrap_error(exc, "openai")
+
     async def complete(self, messages: list[LLMMessage]) -> LLMResponse:
         oai_messages = [{"role": m.role, "content": m.content} for m in messages]
         try:
@@ -28,24 +31,10 @@ class OpenAIAdapter(BaseLLMAdapter):
                 temperature=self.config.temperature,
                 messages=oai_messages,
             )
-        except openai.RateLimitError as e:
-            raise LLMError(f"OpenAI rate limit exceeded. {e}", provider="openai", retriable=True) from e
-        except openai.AuthenticationError as e:
-            raise LLMError(
-                f"OpenAI authentication failed (401). Check your API key in Settings.",
-                provider="openai",
-                status_code=401,
-            ) from e
-        except openai.PermissionDeniedError as e:
-            raise LLMError(
-                f"OpenAI permission denied (403). Your API key may lack required permissions.",
-                provider="openai",
-                status_code=403,
-            ) from e
-        except openai.APIError as e:
-            raise LLMError(f"OpenAI API error: {e}", provider="openai") from e
+        except LLMError:
+            raise
         except Exception as e:
-            raise LLMError(f"OpenAI request failed: {e}", provider="openai") from e
+            raise self._wrap_error(e) from e
 
         content = response.choices[0].message.content or ""
         usage = None
@@ -68,24 +57,10 @@ class OpenAIAdapter(BaseLLMAdapter):
                 stream=True,
                 stream_options={"include_usage": True},
             )
-        except openai.RateLimitError as e:
-            raise LLMError(f"OpenAI rate limit exceeded. {e}", provider="openai", retriable=True) from e
-        except openai.AuthenticationError as e:
-            raise LLMError(
-                f"OpenAI authentication failed (401). Check your API key in Settings.",
-                provider="openai",
-                status_code=401,
-            ) from e
-        except openai.PermissionDeniedError as e:
-            raise LLMError(
-                f"OpenAI permission denied (403). Your API key may lack required permissions.",
-                provider="openai",
-                status_code=403,
-            ) from e
-        except openai.APIError as e:
-            raise LLMError(f"OpenAI API error: {e}", provider="openai") from e
+        except LLMError:
+            raise
         except Exception as e:
-            raise LLMError(f"OpenAI request failed: {e}", provider="openai") from e
+            raise self._wrap_error(e) from e
 
         async for chunk in stream:
             if chunk.choices and chunk.choices[0].delta.content:

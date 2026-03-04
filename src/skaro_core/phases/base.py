@@ -262,6 +262,79 @@ class BasePhase(ABC):
 
         return files
 
+    def _format_source_files(self, source_files: dict[str, str]) -> str:
+        """Format collected source files into markdown blocks."""
+        parts = []
+        for fpath, content in source_files.items():
+            parts.append(f"### {fpath}\n```\n{content}\n```")
+        return "\n\n".join(parts)
+
+    def _append_source_context(
+        self,
+        ctx: dict[str, str],
+        *,
+        max_files: int = 30,
+        max_file_size: int = 15_000,
+    ) -> None:
+        """Append project source files and file tree to a context dict."""
+        source_files = self._collect_project_sources(
+            max_files=max_files, max_file_size=max_file_size,
+        )
+        if source_files:
+            ctx["Current Project Source Files"] = self._format_source_files(source_files)
+
+        tree = self._scan_project_tree()
+        if tree:
+            ctx["Project File Tree"] = tree
+
+    def _build_task_context(
+        self,
+        task: str,
+        *,
+        include_clarifications: bool = True,
+        max_files: int = 30,
+        max_file_size: int = 15_000,
+    ) -> dict[str, str]:
+        """Gather standard context for a single task.
+
+        Collects architecture, spec, clarifications, plan, AI_NOTES from
+        completed stages, project source files, and project tree.
+        """
+        ctx: dict[str, str] = {}
+
+        # Architecture
+        arch = self.artifacts.read_architecture()
+        if arch.strip():
+            ctx["Architecture"] = arch
+
+        # Task spec
+        spec = self.artifacts.find_and_read_task_file(task, "spec.md")
+        if spec:
+            ctx["Task Specification"] = spec
+
+        # Clarifications
+        if include_clarifications:
+            clarif = self.artifacts.find_and_read_task_file(task, "clarifications.md")
+            if clarif:
+                ctx["Clarifications"] = clarif
+
+        # Plan
+        plan = self.artifacts.find_and_read_task_file(task, "plan.md")
+        if plan:
+            ctx["Implementation Plan"] = plan
+
+        # AI_NOTES from completed stages
+        completed = self.artifacts.find_completed_stages(task)
+        for s in sorted(completed):
+            notes_path = self.artifacts.find_stage_dir(task, s) / "AI_NOTES.md"
+            if notes_path.exists():
+                ctx[f"Stage {s} AI_NOTES"] = notes_path.read_text(encoding="utf-8")
+
+        # Source files + project tree
+        self._append_source_context(ctx, max_files=max_files, max_file_size=max_file_size)
+
+        return ctx
+
     @staticmethod
     def _parse_file_blocks(content: str) -> dict[str, str]:
         """Parse LLM output into {filepath: content} dict.

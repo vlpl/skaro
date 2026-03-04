@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import re
+from datetime import date as _date
 from typing import Any
 
 from skaro_core.phases.base import BasePhase, PhaseResult
@@ -59,6 +61,66 @@ class ArchitecturePhase(BasePhase):
                 "proposed_architecture": proposed_text,
             },
         )
+
+    async def apply_review(self, architecture: str, review: str) -> str:
+        """Apply review recommendations: LLM rewrites architecture.
+
+        Returns the proposed architecture text.
+        """
+        prompt_template = self._load_prompt_template("architecture-apply")
+        if prompt_template:
+            prompt = prompt_template
+        else:
+            prompt = (
+                "Apply review recommendations to this architecture.\n\n"
+                "## Current Architecture\n{architecture}\n\n"
+                "## Review\n{review}\n\n"
+                "Return the complete improved architecture document."
+            )
+
+        prompt = prompt.replace("{architecture}", architecture).replace("{review}", review)
+        messages = self._build_messages(prompt)
+        response = await self._stream_collect(messages)
+        return response.strip()
+
+    async def generate_adrs(
+        self,
+        architecture: str,
+        review: str = "",
+        adr_template: str = "",
+    ) -> list[dict[str, str]]:
+        """Generate ADR proposals from architecture using LLM.
+
+        Returns a list of ``{"title": ..., "content": ...}`` dicts.
+        Raises ValueError if LLM response cannot be parsed as JSON.
+        """
+        prompt_template = self._load_prompt_template("adr-generate")
+        if prompt_template:
+            prompt = prompt_template
+        else:
+            prompt = (
+                "Generate ADRs for this architecture. Return JSON array with "
+                "number, title, content fields.\n\nArchitecture:\n{architecture}"
+            )
+
+        today = _date.today().isoformat()
+        review_section = f"Architecture review feedback:\n{review}" if review.strip() else ""
+        prompt = (
+            prompt
+            .replace("{architecture}", architecture)
+            .replace("{review_section}", review_section)
+            .replace("{adr_template}", adr_template)
+            .replace("{today}", today)
+        )
+
+        messages = self._build_messages(prompt)
+        response = await self._stream_collect(messages)
+
+        json_match = re.search(r"```json\s*\n([\s\S]*?)\n\s*```", response)
+        if not json_match:
+            raise ValueError(f"LLM did not return valid JSON.\n{response}")
+
+        return json.loads(json_match.group(1))
 
     @staticmethod
     def _split_response(content: str) -> tuple[str, str]:

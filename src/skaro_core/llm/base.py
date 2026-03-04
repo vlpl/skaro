@@ -62,6 +62,40 @@ class BaseLLMAdapter(ABC):
                 f"Enter it in Settings{env_hint}"
             )
 
+    def _wrap_error(self, exc: Exception) -> LLMError:
+        """Convert a provider-specific exception into :class:`LLMError`.
+
+        Subclasses should override to map their SDK exceptions.
+        """
+        return LLMError(f"LLM request failed: {exc}", provider=self.config.provider)
+
+
+def openai_wrap_error(exc: Exception, provider: str) -> LLMError:
+    """Map ``openai.*`` exceptions to :class:`LLMError`.
+
+    Works for OpenAI and Groq adapters (both use the ``openai`` SDK).
+    """
+    import openai
+
+    if isinstance(exc, openai.RateLimitError):
+        return LLMError(
+            f"{provider.title()} rate limit exceeded. {exc}",
+            provider=provider, retriable=True,
+        )
+    if isinstance(exc, openai.AuthenticationError):
+        return LLMError(
+            f"{provider.title()} authentication failed (401). Check your API key in Settings.",
+            provider=provider, status_code=401,
+        )
+    if isinstance(exc, openai.PermissionDeniedError):
+        return LLMError(
+            f"{provider.title()} permission denied (403). Your API key may lack required permissions.",
+            provider=provider, status_code=403,
+        )
+    if isinstance(exc, openai.APIError):
+        return LLMError(f"{provider.title()} API error: {exc}", provider=provider)
+    return LLMError(f"{provider.title()} request failed: {exc}", provider=provider)
+
 
 def _build_presets() -> dict[str, tuple[str, str, bool]]:
     """Build PROVIDER_PRESETS from providers.yaml registry.

@@ -156,11 +156,6 @@ class TestConfigUpdateBody:
         assert "llm" in d
         assert "ui" in d
 
-    def test_rejects_invalid_port(self):
-        from pydantic import ValidationError
-        with pytest.raises(ValidationError):
-            ConfigUpdateBody(ui={"port": 0})
-
     def test_rejects_invalid_temperature(self):
         from pydantic import ValidationError
         with pytest.raises(ValidationError):

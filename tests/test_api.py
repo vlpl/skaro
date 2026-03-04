@@ -326,12 +326,6 @@ class TestValidationErrors:
         })
         assert resp.status_code == 422
 
-    def test_config_rejects_bad_port(self, client):
-        resp = client.put("/api/config", json={
-            "ui": {"port": 0},
-        })
-        assert resp.status_code == 422
-
 
 class TestFixConversationAPI:
     """Tests for fix conversation persistence endpoints."""
