@@ -18,9 +18,11 @@ class FrontendBuildHook(BuildHookInterface):
         if not frontend_dir.exists():
             return
 
-        # Check if any frontend source is newer than the last build
+        # Always rebuild if _app is missing (e.g. wheel built from sdist)
+        app_dir = static_dir / '_app'
         index_html = static_dir / 'index.html'
-        if index_html.exists():
+        if app_dir.exists() and index_html.exists():
+            # Check if any frontend source is newer than the last build
             build_time = index_html.stat().st_mtime
             src_dir = frontend_dir / 'src'
             needs_rebuild = False

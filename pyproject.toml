@@ -4,7 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "skaro"
+<<<<<<< HEAD
 version = "0.1.17"
+=======
+version = "0.1.17"
+>>>>>>> 5a127a8 (:green_heart: fix build)
 description = "AI-powered SDLC orchestration platform"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
