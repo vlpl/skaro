@@ -1,9 +1,35 @@
-# Skaro
+<div align="center">
 
-AI-powered SDLC orchestration platform.
+# Skaro — AI-powered Software Development orchestration platform
 
-Developer is the architect. LLM is the amplifier.
-Specifications live in the repository next to code. Context never gets lost.
+<br />
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg" />
+  <source media="(prefers-color-scheme: light)" srcset="assets/logo-light.svg" />
+  <img src="assets/logo-light.svg" alt="Skaro" width="200" />
+</picture>
+
+<br />
+
+[![PyPI](https://img.shields.io/pypi/v/skaro?style=flat-square&color=blue)](https://pypi.org/project/skaro/)
+[![Python](https://img.shields.io/pypi/pyversions/skaro?style=flat-square)](https://pypi.org/project/skaro/)
+[![License](https://img.shields.io/github/license/skarodev/skaro?style=flat-square)](LICENSE)
+
+<br />
+**Developer is the architect, the AI is the executor.**
+<br />
+**Specifications live in the repository next to code. Context never gets lost.**
+
+<br />
+
+
+
+[Documentation](https://docs.skaro.dev) · [PyPI](https://pypi.org/project/skaro/) · [Telegram](https://t.me/skaro_dev) · [Discord](https://discord.gg/zUv6AHuJwD)
+
+</div>
+
+---
 
 ## Install
 
@@ -40,6 +66,41 @@ skaro ui
 `skaro init` creates a `.skaro/` directory with constitution, architecture template, and config.
 
 `skaro ui` starts the web dashboard at `http://localhost:4700`. LLM provider is configured from the UI.
+
+## Update
+
+Check for a new version:
+
+```
+skaro update
+```
+
+Use `--force` to bypass the 24-hour cache:
+
+```
+skaro update --force
+```
+
+**Upgrade — install script (venv):**
+
+| OS | Command |
+|---|---|
+| Windows | `& "$env:USERPROFILE\.skaro\venv\Scripts\pip.exe" install --upgrade skaro` |
+| macOS / Linux | `~/.skaro/venv/bin/pip install --upgrade skaro` |
+
+Or simply re-run the install script — it detects the existing venv and upgrades in place.
+
+**Upgrade — pipx:**
+
+```
+pipx upgrade skaro
+```
+
+Verify after upgrade:
+
+```
+skaro --version
+```
 
 ## From source (development)
 
