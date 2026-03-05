@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from skaro_core.artifacts import ArtifactManager
+from skaro_core.artifacts import ArtifactManager, TEMPLATES_PKG_DIR
 from skaro_web.api.deps import broadcast, get_am
 from skaro_web.api.schemas import ContentBody
 
 router = APIRouter(prefix="/api/constitution", tags=["constitution"])
 
 # ── Presets directory (ships with the package) ─────
-_PRESETS_DIR = Path(__file__).resolve().parents[3] / "templates" / "constitution-presets"
+_PRESETS_DIR = TEMPLATES_PKG_DIR / "constitution-presets" if TEMPLATES_PKG_DIR else None
 
 # Registry: id → (label, category, filename)
 _PRESET_REGISTRY: list[dict[str, str]] = [
@@ -73,6 +71,8 @@ async def get_preset(preset_id: str):
     entry = next((p for p in _PRESET_REGISTRY if p["id"] == preset_id), None)
     if not entry:
         raise HTTPException(status_code=404, detail=f"Preset '{preset_id}' not found")
+    if _PRESETS_DIR is None:
+        raise HTTPException(status_code=500, detail="Templates directory not found")
     path = _PRESETS_DIR / entry["file"]
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"Preset file missing: {entry['file']}")
