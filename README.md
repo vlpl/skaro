@@ -5,17 +5,17 @@
 <br />
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg" />
-  <source media="(prefers-color-scheme: light)" srcset="assets/logo-light.svg" />
-  <img src="assets/logo-light.svg" alt="Skaro" width="200" />
+  <source media="(prefers-color-scheme: dark)" srcset="assets/logo-light.svg" />
+  <source media="(prefers-color-scheme: light)" srcset="assets/logo-dark.svg" />
+  <img src="assets/logo-dark.svg" alt="Skaro" width="200" />
 </picture>
 
 <br />
 <br />
 
-[![PyPI](https://img.shields.io/pypi/v/skaro?style=flat-square&color=blue)](https://pypi.org/project/skaro/)
-[![Python](https://img.shields.io/pypi/pyversions/skaro?style=flat-square)](https://pypi.org/project/skaro/)
-[![License](https://img.shields.io/github/license/skarodev/skaro?style=flat-square)](LICENSE)
+![PyPI - Version](https://img.shields.io/pypi/v/skaro?style=for-the-badge)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/skaro?style=for-the-badge)
+![GitHub License](https://img.shields.io/github/license/skarodev/skaro?style=for-the-badge)
 
 <br />
 
