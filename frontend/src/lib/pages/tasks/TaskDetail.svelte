@@ -197,9 +197,9 @@
 			const result = await api.runTests(taskName);
 			if (result.success) {
 				testsResults = result.data;
-				addLog($t('log.tests_done', { name: taskName }));
-				await reloadAll();
 				activeFileTab = 'tests';
+				addLog($t('log.tests_done', { name: taskName }));
+				try { await reloadAll(); } catch { /* status refresh is non-critical */ }
 			} else handleActionError(result);
 		} catch (e) { addError(e.message, 'runTests'); actionResult = e.message; }
 		actionLoading = '';
@@ -210,7 +210,7 @@
 			const result = await api.confirmTests(taskName);
 			if (result.success) {
 				addLog($t('log.tests_confirmed', { name: taskName }));
-				await reloadAll();
+				try { await reloadAll(); } catch { /* status refresh is non-critical */ }
 			} else handleActionError(result);
 		} catch (e) { addError(e.message, 'confirmTests'); }
 	}
@@ -270,6 +270,10 @@
 		{phases} {currentStage} {totalStages} {actionLoading} {hasUnanswered}
 		onClarify={runClarify} onPlan={runPlan} onImplement={runImplement} onTests={runTests}
 	/>
+
+	{#if actionResult && !actionLoading}
+		<div class="alert alert-warn">{actionResult}</div>
+	{/if}
 
 	{#if hasUnanswered}
 		<ClarifyForm
