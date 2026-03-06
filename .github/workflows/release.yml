@@ -2,7 +2,8 @@ name: Release to PyPI
 
 on:
   push:
-    branches: [main]
+    tags:
+      - 'v*'
 
 concurrency:
   group: release
@@ -19,7 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # full history needed for tags
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -34,36 +35,18 @@ jobs:
       - name: Install build tools
         run: pip install build hatch-vcs
 
-      # ── Compute next version from latest tag ──
-      - name: Bump version tag
-        id: bump
-        run: |
-          # Get latest version tag (or default to 0.1.0)
-          latest=$(git tag --list 'v*' --sort=-v:refname | head -n1)
-          if [ -z "$latest" ]; then
-            new_version="0.1.1"
-          else
-            current="${latest#v}"
-            IFS='.' read -r major minor patch <<< "$current"
-            new_version="${major}.${minor}.$((patch + 1))"
-          fi
-
-          echo "version=$new_version" >> "$GITHUB_OUTPUT"
-          echo "New version: $new_version"
-
-      - name: Create and push tag
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "v${{ steps.bump.outputs.version }}"
-          git push origin "v${{ steps.bump.outputs.version }}"
-
       # ── Build (hatch-vcs reads version from tag) ──
       - name: Build package
         run: python -m build
 
-      # ── Publish ───────────────────────────────
+      # ── Publish to PyPI ──
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
+
+      # ── Create GitHub Release with auto-changelog ──
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
