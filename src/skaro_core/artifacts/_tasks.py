@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import shutil
 from pathlib import Path
 
 from skaro_core.artifacts._models import (
@@ -50,15 +52,58 @@ class TasksMixin:
         return self.task_dir(milestone, task)
 
     def list_tasks(self, milestone: str) -> list[str]:
-        """List task slugs within a milestone."""
+        """List task slugs within a milestone, respecting order.json."""
         mdir = self.milestone_dir(milestone)
-        if mdir.is_dir():
-            return sorted(
-                d.name
-                for d in mdir.iterdir()
-                if d.is_dir() and not d.name.startswith(".")
-            )
+        if not mdir.is_dir():
+            return []
+        all_tasks = sorted(
+            d.name
+            for d in mdir.iterdir()
+            if d.is_dir() and not d.name.startswith(".")
+        )
+        order = self.get_task_order(milestone)
+        if not order:
+            return all_tasks
+        task_set = set(all_tasks)
+        ordered = [t for t in order if t in task_set]
+        remaining = [t for t in all_tasks if t not in set(order)]
+        return ordered + remaining
+
+    def delete_task(self, milestone: str, task: str) -> bool:
+        """Delete task directory from disk. Returns True if deleted."""
+        tdir = self.task_dir(milestone, task)
+        if tdir.is_dir():
+            shutil.rmtree(tdir)
+            self._remove_from_order(milestone, task)
+            return True
+        return False
+
+    # ── Task ordering ───────────────────────────
+
+    def get_task_order(self, milestone: str) -> list[str]:
+        """Read order.json from milestone dir."""
+        order_path = self.milestone_dir(milestone) / "order.json"
+        if order_path.exists():
+            try:
+                return json.loads(order_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                pass
         return []
+
+    def save_task_order(self, milestone: str, names: list[str]) -> None:
+        """Save task order to order.json in milestone dir."""
+        order_path = self.milestone_dir(milestone) / "order.json"
+        order_path.parent.mkdir(parents=True, exist_ok=True)
+        order_path.write_text(
+            json.dumps(names, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    def _remove_from_order(self, milestone: str, task: str) -> None:
+        """Remove a task from order.json if present."""
+        order = self.get_task_order(milestone)
+        if task in order:
+            order.remove(task)
+            self.save_task_order(milestone, order)
 
     def list_all_tasks(self) -> list[tuple[str, str]]:
         """List all (milestone, task) pairs across all milestones."""

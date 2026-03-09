@@ -1,11 +1,23 @@
 <script>
 	import { t } from '$lib/i18n/index.js';
 	import { status } from '$lib/stores/statusStore.js';
-	import { Package } from 'lucide-svelte';
+	import { addLog, addError } from '$lib/stores/logStore.js';
+	import { invalidate } from '$lib/api/cache.js';
+	import { api } from '$lib/api/client.js';
+	import { Package, Plus, GripVertical } from 'lucide-svelte';
 	import TaskCard from '$lib/pages/tasks/TaskCard.svelte';
+	import CreateTaskModal from '$lib/pages/tasks/CreateTaskModal.svelte';
 
 	let activeTab = $state('__all__');
-	let statusFilter = $state('all'); // 'all' | 'active' | 'done'
+	let statusFilter = $state('all');
+
+	// ── Create modal ──
+	let showCreateModal = $state(false);
+	let createLoading = $state(false);
+
+	// ── Drag & Drop state ──
+	let dragIndex = $state(-1);
+	let overIndex = $state(-1);
 
 	/** Returns true when all relevant phases of a task are complete. */
 	function isTaskDone(task) {
@@ -50,6 +62,9 @@
 		applyStatusFilter(tasksForTab(activeTab))
 	);
 
+	/** DnD is available when status filter is "all" (so ordering is unambiguous). */
+	let canReorder = $derived(statusFilter === 'all');
+
 	function formatMilestone(slug) {
 		return (slug || '')
 			.replace(/^\d+-/, '')
@@ -61,6 +76,102 @@
 	function tabCount(tabId) {
 		return applyStatusFilter(tasksForTab(tabId)).length;
 	}
+
+	// ── Create Task ──
+	async function handleCreate({ name, milestone }) {
+		createLoading = true;
+		try {
+			await api.createTask(name, milestone);
+			addLog($t('log.task_created', { name, milestone }));
+			invalidate('status');
+			status.set(await api.getStatus());
+			showCreateModal = false;
+		} catch (e) {
+			addError(e.message, 'createTask');
+		}
+		createLoading = false;
+	}
+
+	// ── Drag & Drop ──
+	/** Milestone of the task currently being dragged. */
+	let dragMilestone = $state('');
+
+	function handleDragStart(e, idx) {
+		dragIndex = idx;
+		dragMilestone = filteredTasks[idx]?.milestone || '';
+		e.dataTransfer.effectAllowed = 'move';
+		e.dataTransfer.setData('text/plain', String(idx));
+	}
+
+	function handleDragOver(e, idx) {
+		e.preventDefault();
+		// Only show drop indicator for same-milestone tasks
+		const targetTask = filteredTasks[idx];
+		if (targetTask && targetTask.milestone === dragMilestone) {
+			e.dataTransfer.dropEffect = 'move';
+			overIndex = idx;
+		} else {
+			e.dataTransfer.dropEffect = 'none';
+			overIndex = -1;
+		}
+	}
+
+	function handleDragLeave() {
+		overIndex = -1;
+	}
+
+	function handleDrop(e) {
+		e.preventDefault();
+		if (dragIndex < 0 || overIndex < 0 || dragIndex === overIndex) {
+			resetDrag();
+			return;
+		}
+
+		const tasks = [...filteredTasks];
+		const draggedTask = tasks[dragIndex];
+		const targetTask = tasks[overIndex];
+
+		// Safety: only reorder within same milestone
+		if (!draggedTask || !targetTask || draggedTask.milestone !== targetTask.milestone) {
+			resetDrag();
+			return;
+		}
+
+		const milestone = draggedTask.milestone;
+
+		// Extract just this milestone's tasks in their current order
+		const milestoneTasks = tasks.filter((t) => t.milestone === milestone);
+		const dragMsIdx = milestoneTasks.indexOf(draggedTask);
+		const overMsIdx = milestoneTasks.indexOf(targetTask);
+
+		const [moved] = milestoneTasks.splice(dragMsIdx, 1);
+		milestoneTasks.splice(overMsIdx, 0, moved);
+
+		const newOrder = milestoneTasks.map((t) => t.name);
+		resetDrag();
+		persistOrder(milestone, newOrder);
+	}
+
+	function handleDragEnd() {
+		resetDrag();
+	}
+
+	function resetDrag() {
+		dragIndex = -1;
+		overIndex = -1;
+		dragMilestone = '';
+	}
+
+	async function persistOrder(milestone, taskNames) {
+		try {
+			await api.reorderTasks(milestone, taskNames);
+			addLog($t('log.tasks_reordered'));
+			invalidate('status');
+			status.set(await api.getStatus());
+		} catch (e) {
+			addError(e.message, 'reorderTasks');
+		}
+	}
 </script>
 
 <div class="page-with-tabs">
@@ -69,31 +180,41 @@
 			<h2><Package size={24} /> {$t('task.title')}</h2>
 			<p>{$t('task.subtitle')}</p>
 		</div>
-		{#if $status?.tasks?.length}
-			<div class="status-filters">
-				<button
-					class="filter-btn"
-					class:active={statusFilter === 'all'}
-					onclick={() => statusFilter = 'all'}
-				>{$t('task.filter_all')}</button>
-				<button
-					class="filter-btn"
-					class:active={statusFilter === 'active'}
-					onclick={() => statusFilter = 'active'}
-				>{$t('task.filter_active')}</button>
-				<button
-					class="filter-btn"
-					class:active={statusFilter === 'done'}
-					onclick={() => statusFilter = 'done'}
-				>{$t('task.filter_done')}</button>
-			</div>
-		{/if}
+		<div class="header-right">
+			{#if $status?.tasks?.length}
+				<div class="status-filters">
+					<button
+						class="filter-btn"
+						class:active={statusFilter === 'all'}
+						onclick={() => statusFilter = 'all'}
+					>{$t('task.filter_all')}</button>
+					<button
+						class="filter-btn"
+						class:active={statusFilter === 'active'}
+						onclick={() => statusFilter = 'active'}
+					>{$t('task.filter_active')}</button>
+					<button
+						class="filter-btn"
+						class:active={statusFilter === 'done'}
+						onclick={() => statusFilter = 'done'}
+					>{$t('task.filter_done')}</button>
+				</div>
+			{/if}
+			<button class="btn btn-primary btn-sm" onclick={() => showCreateModal = true}>
+				<Plus size={14} /> {$t('task.create')}
+			</button>
+		</div>
 	</div>
 
 	{#if !$status?.tasks?.length}
 		<div class="card empty">
 			<p>{$t('task.empty')}</p>
 			<p class="hint">{$t('task.empty_hint')}</p>
+			<div class="btn-group" style="justify-content: center;">
+				<button class="btn btn-primary" onclick={() => showCreateModal = true}>
+					<Plus size={14} /> {$t('task.create')}
+				</button>
+			</div>
 		</div>
 	{:else}
 		<div class="milestone-tabs-layout">
@@ -110,9 +231,32 @@
 					</button>
 				{/each}
 			</nav>
-			<div class="milestone-tabs-content">
-				{#each filteredTasks as task (task.name)}
-					<TaskCard {task} href="/tasks/{encodeURIComponent(task.name)}" />
+			<div class="milestone-tabs-content" role="list">
+				{#each filteredTasks as task, i (task.name)}
+					{@const isDragging = dragIndex === i}
+					{@const isOver = overIndex === i && dragIndex !== i}
+					{@const sameMilestone = dragMilestone === '' || task.milestone === dragMilestone}
+					<div
+						class="drag-wrapper"
+						class:drag-active={isDragging}
+						class:drag-over-above={isOver && dragIndex > i}
+						class:drag-over-below={isOver && dragIndex < i}
+						class:drag-foreign={dragIndex >= 0 && !isDragging && !sameMilestone}
+						draggable={canReorder}
+						ondragstart={(e) => handleDragStart(e, i)}
+						ondragover={(e) => handleDragOver(e, i)}
+						ondragleave={handleDragLeave}
+						ondrop={handleDrop}
+						ondragend={handleDragEnd}
+						role="listitem"
+					>
+						{#if canReorder}
+							<span class="drag-grip"><GripVertical size={16} /></span>
+						{/if}
+						<div class="drag-card-wrap">
+							<TaskCard {task} href="/tasks/{encodeURIComponent(task.name)}" />
+						</div>
+					</div>
 				{/each}
 				{#if filteredTasks.length === 0}
 					<div class="card empty">
@@ -123,6 +267,16 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Create Task Modal -->
+{#if showCreateModal}
+	<CreateTaskModal
+		milestones={milestones}
+		loading={createLoading}
+		onConfirm={handleCreate}
+		onClose={() => showCreateModal = false}
+	/>
+{/if}
 
 <style>
 	.main-header {
@@ -136,13 +290,19 @@
 		min-width: 0;
 	}
 
+	.header-right {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		flex-shrink: 0;
+		padding-top: 0.25rem;
+	}
+
 	/* Status filter buttons */
 	.status-filters {
 		display: flex;
 		gap: 0.25rem;
 		align-items: center;
-		flex-shrink: 0;
-		padding-top: 0.25rem;
 	}
 
 	.filter-btn {
@@ -252,5 +412,57 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
+	}
+
+	/* ── Drag & Drop ── */
+	.drag-wrapper {
+		display: flex;
+		align-items: stretch;
+		gap: 0;
+		border-radius: var(--r);
+		transition: opacity .15s;
+		position: relative;
+	}
+
+	.drag-wrapper .drag-card-wrap {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.drag-grip {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.75rem;
+		flex-shrink: 0;
+		color: var(--dm2);
+		cursor: grab;
+		opacity: 0;
+		transition: opacity .15s;
+		user-select: none;
+	}
+
+	.drag-wrapper:hover .drag-grip {
+		opacity: 1;
+	}
+
+	.drag-grip:active { cursor: grabbing; }
+
+	.drag-active {
+		opacity: 0.4;
+	}
+
+	/* Dim cards from other milestones while dragging */
+	.drag-foreign {
+		opacity: 0.3;
+		pointer-events: none;
+	}
+
+	.drag-over-above {
+		box-shadow: 0 -0.125rem 0 0 var(--ac);
+	}
+
+	.drag-over-below {
+		box-shadow: 0 0.125rem 0 0 var(--ac);
 	}
 </style>

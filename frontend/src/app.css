@@ -151,7 +151,7 @@ select {
 
 /* Card */
 .card {
-    background: var(--sf);
+    background: var(--bd);
     border: none;
     border-radius: var(--r);
     padding: 1.3rem 1.5rem;

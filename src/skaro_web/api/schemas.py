@@ -102,6 +102,26 @@ class TaskCreateBody(BaseModel):
     milestone: str = ""
 
 
+class TaskReorderBody(BaseModel):
+    """Reorder tasks within a milestone."""
+    milestone: str = Field(..., min_length=1)
+    tasks: list[str] = Field(..., min_length=1)
+
+
+class TaskFileSaveBody(BaseModel):
+    """Save a task file (spec.md, plan.md, etc.)."""
+    filename: str = Field(..., min_length=1)
+    content: str
+
+    @field_validator("filename")
+    @classmethod
+    def validate_filename(cls, v: str) -> str:
+        allowed = {"spec.md", "clarifications.md", "plan.md", "tasks.md"}
+        if v not in allowed:
+            raise ValueError(f"Cannot edit '{v}'. Allowed: {', '.join(sorted(allowed))}")
+        return v
+
+
 class ClarifyAnswerBody(BaseModel):
     questions: str = ""
     answers: dict[str, str] = Field(default_factory=dict)

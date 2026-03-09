@@ -14,10 +14,13 @@ from skaro_web.api.deps import broadcast, get_am, get_project_root, get_ws_manag
 from skaro_web.api.schemas import (
     ClarifyAnswerBody,
     ClarifyDraftBody,
+    ContentBody,
     FileApplyBody,
     FixBody,
     ImplementBody,
     TaskCreateBody,
+    TaskFileSaveBody,
+    TaskReorderBody,
     VerifyCommandsBody,
 )
 
@@ -34,6 +37,7 @@ async def get_tasks(am: ArtifactManager = Depends(get_am)):
             {"name": ts.name, "milestone": ts.milestone}
             for ts in state.tasks
         ],
+        "milestones": am.list_milestones(),
     }
 
 
@@ -50,6 +54,42 @@ async def create_task(
     am.ensure_task(name, milestone=milestone_slug)
     await broadcast(request, {"event": "task:created", "task": name, "milestone": milestone_slug})
     return {"success": True, "name": name, "milestone": milestone_slug}
+
+
+@router.put("/reorder")
+async def reorder_tasks(
+    request: Request,
+    payload: TaskReorderBody,
+    am: ArtifactManager = Depends(get_am),
+):
+    """Save custom task order within a milestone."""
+    if not am.milestone_exists(payload.milestone):
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "message": f"Milestone '{payload.milestone}' not found."},
+        )
+    am.save_task_order(payload.milestone, payload.tasks)
+    await broadcast(request, {"event": "tasks:reordered", "milestone": payload.milestone})
+    return {"success": True}
+
+
+@router.delete("/{name}")
+async def delete_task(
+    name: str,
+    request: Request,
+    am: ArtifactManager = Depends(get_am),
+):
+    """Delete a task and its directory from disk."""
+    resolved = am.resolve_task_safe(name)
+    if not resolved:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "message": f"Task '{name}' not found."},
+        )
+    milestone, task_slug = resolved
+    am.delete_task(milestone, task_slug)
+    await broadcast(request, {"event": "task:deleted", "task": name, "milestone": milestone})
+    return {"success": True, "name": name, "milestone": milestone}
 
 
 @router.get("/{name}")
@@ -94,6 +134,46 @@ async def get_task_detail(name: str, am: ArtifactManager = Depends(get_am)):
             "phases": {p.value: s.value for p, s in ts.phases.items()},
         },
     }
+
+
+# ── Task file editing ──────────────────────────────
+
+@router.put("/{name}/file")
+async def save_task_file(
+    name: str,
+    request: Request,
+    payload: TaskFileSaveBody,
+    am: ArtifactManager = Depends(get_am),
+):
+    """Save a task file (spec.md, plan.md, etc.)."""
+    if not am.find_task_exists(name):
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "message": f"Task '{name}' not found."},
+        )
+    am.find_and_write_task_file(name, payload.filename, payload.content)
+    await broadcast(request, {"event": "task:file_saved", "task": name, "file": payload.filename})
+    return {"success": True, "file": payload.filename}
+
+
+@router.put("/{name}/stage/{stage_num}/notes")
+async def save_stage_notes(
+    name: str,
+    stage_num: int,
+    request: Request,
+    payload: ContentBody,
+    am: ArtifactManager = Depends(get_am),
+):
+    """Save stage AI_NOTES.md content."""
+    resolved = am.resolve_task_safe(name)
+    if not resolved:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "message": f"Task '{name}' not found."},
+        )
+    am.create_stage_notes(*resolved, stage_num, payload.content)
+    await broadcast(request, {"event": "task:stage_saved", "task": name, "stage": stage_num})
+    return {"success": True, "stage": stage_num}
 
 
 # ── Clarify ─────────────────────────────────────

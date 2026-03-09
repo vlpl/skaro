@@ -8,6 +8,7 @@
 		onSelectTab = (id) => {},
 		chatSlot = null,
 		testsSlot = null,
+		contentActionsSlot = null,
 	} = $props();
 
 	let effectiveTab = $derived(activeTab || tabs[0]?.id || '');
@@ -38,6 +39,9 @@
 			{/each}
 		</nav>
 		<div class="file-tabs-content">
+			{#if contentActionsSlot}
+				{@render contentActionsSlot()}
+			{/if}
 			{#if effectiveTab === 'chat' && chatSlot}
 				{@render chatSlot()}
 			{:else if effectiveTab === 'tests' && testsSlot}

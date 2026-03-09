@@ -24,7 +24,7 @@
 	);
 </script>
 
-<a class="card task-item" {href}>
+<a class="card task-item" {href} draggable="false">
 	<div class="task-head">
 		<h3>
 			{#if allComplete}

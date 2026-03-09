@@ -9,15 +9,18 @@
 	import { addLog, addError } from '$lib/stores/logStore.js';
 	import { invalidate } from '$lib/api/cache.js';
 	import { parseClarifications } from '$lib/utils/markdown.js';
+	import { Pencil, RefreshCw, Loader2 } from 'lucide-svelte';
 	import MarkdownContent from '$lib/ui/MarkdownContent.svelte';
 	import FileTabs from '$lib/ui/FileTabs.svelte';
 	import DiffModal from '$lib/ui/DiffModal.svelte';
+	import MdEditor from '$lib/ui/md-editor/MdEditor.svelte';
 	import TaskHeader from './TaskHeader.svelte';
 	import TaskActions from './TaskActions.svelte';
 	import ClarifyForm from './ClarifyForm.svelte';
 	import ImplementReview from './ImplementReview.svelte';
 	import FixPanel from './FixPanel.svelte';
 	import TestsPanel from './TestsPanel.svelte';
+	import ConfirmModal from './ConfirmModal.svelte';
 
 	let { taskName } = $props();
 
@@ -32,6 +35,14 @@
 	let testsResults = $state(null);
 	let tabInitialized = false;
 	let lastQAKey = $state('');
+	let deleteConfirmOpen = $state(false);
+	let deleteLoading = $state(false);
+
+	// ── Editor state ──
+	let showEditor = $state(false);
+	let editorContent = $state('');
+	/** @type {{ type: 'file', filename: string } | { type: 'stage', stage: number } | null} */
+	let editorTarget = $state(null);
 
 	// Reset all local state when switching between tasks
 	$effect(() => {
@@ -48,6 +59,8 @@
 		testsResults = null;
 		tabInitialized = false;
 		lastQAKey = '';
+		showEditor = false;
+		editorTarget = null;
 	});
 
 	let detail = $derived($taskDetail);
@@ -85,6 +98,9 @@
 	});
 
 	// ── File tabs ──
+	/** Set of tab IDs that can be edited via MdEditor. */
+	const EDITABLE_FILES = new Set(['spec.md', 'clarifications.md', 'plan.md', 'tasks.md']);
+
 	let fileTabs = $derived.by(() => {
 		if (!detail) return [];
 		const tabs = [];
@@ -116,6 +132,22 @@
 		if (id.startsWith('stage-')) return detail.stages?.[id.replace('stage-', '')] || '';
 		return detail.files?.[id] || '';
 	});
+
+	/** Whether the current tab is editable. */
+	let isTabEditable = $derived.by(() => {
+		const id = activeFileTab;
+		if (!id) return false;
+		if (EDITABLE_FILES.has(id)) return true;
+		if (id.startsWith('stage-')) return true;
+		return false;
+	});
+
+	/** Show re-clarify button only on clarifications tab. */
+	let showReClarify = $derived(
+		activeFileTab === 'clarifications.md'
+		&& phases.clarify === 'complete'
+		&& !hasUnanswered
+	);
 
 	// ── Actions ──
 	async function runClarify() {
@@ -243,6 +275,41 @@
 		}
 	}
 
+	// ── MD Editor ──
+	function openEditor() {
+		const id = activeFileTab;
+		if (!id) return;
+		editorContent = activeContent;
+		if (EDITABLE_FILES.has(id)) {
+			editorTarget = { type: 'file', filename: id };
+		} else if (id.startsWith('stage-')) {
+			const stageNum = parseInt(id.replace('stage-', ''), 10);
+			editorTarget = { type: 'stage', stage: stageNum };
+		} else {
+			return;
+		}
+		showEditor = true;
+	}
+
+	async function saveEditorContent(text) {
+		if (!editorTarget) return;
+		try {
+			if (editorTarget.type === 'file') {
+				await api.saveTaskFile(taskName, editorTarget.filename, text);
+				addLog($t('log.task_file_saved', { file: editorTarget.filename, name: taskName }));
+			} else if (editorTarget.type === 'stage') {
+				await api.saveStageNotes(taskName, editorTarget.stage, text);
+				addLog($t('log.task_file_saved', { file: `stage-${editorTarget.stage}`, name: taskName }));
+			}
+			showEditor = false;
+			editorTarget = null;
+			await reloadAll();
+		} catch (e) {
+			addError(e.message, 'saveTaskFile');
+			throw e;
+		}
+	}
+
 	// ── Helpers ──
 	function handleActionError(result) {
 		addError(result.message || $t('error.unknown'), result.error_type || '');
@@ -261,10 +328,39 @@
 		taskDetail.set(null);
 		goto('/tasks');
 	}
+
+	// ── Delete ──
+	async function handleDeleteTask() {
+		deleteLoading = true;
+		try {
+			await api.deleteTask(taskName);
+			addLog($t('log.task_deleted', { name: taskName }));
+			invalidate('status');
+			status.set(await api.getStatus());
+			taskDetail.set(null);
+			goto('/tasks');
+		} catch (e) {
+			addError(e.message, 'deleteTask');
+		}
+		deleteLoading = false;
+		deleteConfirmOpen = false;
+	}
 </script>
 
 <div class="detail page-with-tabs">
-	<TaskHeader {taskName} {phases} {currentPhase} {currentStage} {totalStages} onBack={goBack} />
+	<TaskHeader {taskName} {phases} {currentPhase} {currentStage} {totalStages} onBack={goBack} onDelete={() => deleteConfirmOpen = true} />
+
+	{#if deleteConfirmOpen}
+		<ConfirmModal
+			title={$t('task.delete_title')}
+			message={$t('task.delete_confirm', { name: taskName })}
+			confirmLabel={$t('task.delete_btn')}
+			cancelLabel={$t('task.delete_cancel')}
+			loading={deleteLoading}
+			onConfirm={handleDeleteTask}
+			onClose={() => deleteConfirmOpen = false}
+		/>
+	{/if}
 
 	<TaskActions
 		{phases} {currentStage} {totalStages} {actionLoading} {hasUnanswered}
@@ -310,6 +406,23 @@
 		content={activeContent}
 		onSelectTab={(id) => activeFileTab = id}
 	>
+		{#snippet contentActionsSlot()}
+			{#if isTabEditable || showReClarify}
+				<div class="content-actions">
+					{#if isTabEditable}
+						<button class="btn btn-sm" onclick={openEditor}>
+							<Pencil size={14} /> {$t('editor.edit')}
+						</button>
+					{/if}
+					{#if showReClarify}
+						<button class="btn btn-sm" disabled={!!actionLoading} onclick={runClarify}>
+							{#if actionLoading === 'clarify'}<Loader2 size={14} class="spin" />{:else}<RefreshCw size={14} />{/if}
+							{$t('action.re_clarify')}
+						</button>
+					{/if}
+				</div>
+			{/if}
+		{/snippet}
 		{#snippet chatSlot()}
 			<FixPanel task={taskName} />
 		{/snippet}
@@ -327,6 +440,21 @@
 	</FileTabs>
 </div>
 
+{#if showEditor}
+	<MdEditor
+		content={editorContent}
+		onSave={saveEditorContent}
+		onClose={() => { showEditor = false; editorTarget = null; }}
+	/>
+{/if}
+
 <style>
 	.detail { padding-bottom: 0; }
+
+	.content-actions {
+		display: flex;
+		gap: 0.5rem;
+		justify-content: flex-end;
+		margin-bottom: 0.75rem;
+	}
 </style>

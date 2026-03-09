@@ -1,6 +1,6 @@
 <script>
 	import { t } from '$lib/i18n/index.js';
-	import { Search, ClipboardList, Hammer, FlaskConical, RefreshCw, Loader2 } from 'lucide-svelte';
+	import { Search, ClipboardList, Hammer, FlaskConical, Loader2 } from 'lucide-svelte';
 
 	let {
 		phases = {},
@@ -32,9 +32,6 @@
 				{#if actionLoading === 'plan'}<Loader2 size={14} class="spin" />{:else}<ClipboardList size={14} />{/if}
 				{$t('action.gen_plan')}
 			</button>
-			<button class="btn" disabled={!!actionLoading} onclick={onClarify}>
-				<RefreshCw size={14} /> {$t('action.re_clarify')}
-			</button>
 		</div>
 
 	{:else if phases.plan === 'complete' && (totalStages === 0 || currentStage + 1 <= totalStages)}
@@ -45,25 +42,15 @@
 				{#if actionLoading === 'implement'}<Loader2 size={14} class="spin" />{:else}<Hammer size={14} />{/if}
 				{$t('action.implement_stage', { n: nextStage })}
 			</button>
-			{#if phases.clarify === 'complete' && !hasUnanswered}
-				<button class="btn" disabled={!!actionLoading} onclick={onClarify}>
-					<RefreshCw size={14} /> {$t('action.re_clarify')}
-				</button>
-			{/if}
 		</div>
 
-	{:else if phases.implement === 'complete' || (currentStage > 0 && currentStage >= totalStages)}
+	{:else if phases.tests !== 'complete' && (phases.implement === 'complete' || (currentStage > 0 && currentStage >= totalStages))}
 		<p class="phase-hint"><strong>{$t('phase_hint.prefix')}</strong>{$t('phase_hint.tests')}</p>
 		<div class="btn-group">
 			<button class="btn btn-primary" disabled={!!actionLoading} onclick={onTests}>
 				{#if actionLoading === 'tests'}<Loader2 size={14} class="spin" />{:else}<FlaskConical size={14} />{/if}
 				{$t('action.run_tests')}
 			</button>
-			{#if phases.clarify === 'complete' && !hasUnanswered}
-				<button class="btn" disabled={!!actionLoading} onclick={onClarify}>
-					<RefreshCw size={14} /> {$t('action.re_clarify')}
-				</button>
-			{/if}
 		</div>
 	{/if}
 </div>

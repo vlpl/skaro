@@ -150,6 +150,15 @@ export const api = {
 	// Tasks
 	getTasks: (signal) => get('/api/tasks', signal),
 	getTask: (/** @type {string} */ name, signal) => get(`/api/tasks/${name}`, signal),
+	createTask: (/** @type {string} */ name, /** @type {string} */ milestone, signal) =>
+		post('/api/tasks', { name, milestone }, signal),
+	deleteTask: (/** @type {string} */ name, signal) => del(`/api/tasks/${name}`, signal),
+	reorderTasks: (/** @type {string} */ milestone, /** @type {string[]} */ tasks, signal) =>
+		put('/api/tasks/reorder', { milestone, tasks }, signal),
+	saveTaskFile: (/** @type {string} */ name, /** @type {string} */ filename, /** @type {string} */ content, signal) =>
+		put(`/api/tasks/${name}/file`, { filename, content }, signal),
+	saveStageNotes: (/** @type {string} */ name, /** @type {number} */ stage, /** @type {string} */ content, signal) =>
+		put(`/api/tasks/${name}/stage/${stage}/notes`, { content }, signal),
 
 	// Phases
 	runClarify: (/** @type {string} */ name, signal) => post(`/api/tasks/${name}/clarify`, {}, signal),

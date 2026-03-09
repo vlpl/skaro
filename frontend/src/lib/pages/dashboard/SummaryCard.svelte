@@ -3,14 +3,13 @@
 	let { icon: Icon, label, value } = $props();
 </script>
 
-<div class="widget sm summary-card">
+<div class="widget card sm summary-card">
 	<div class="sc-value">{value}</div>
 	<div class="sc-label"><Icon size={16} /> {label}</div>
 </div>
 
 <style>
 	.summary-card {
-		background: var(--sf);
 		border-radius: var(--r);
 		padding: 1rem 0.75rem;
 		text-align: center;
