@@ -12,6 +12,7 @@ from skaro_core.artifacts import ArtifactManager
 from skaro_web.api.deps import broadcast, get_am, get_project_root, get_ws_manager, llm_phase, ConnectionManager
 from skaro_web.api.schemas import (
     ArchAcceptBody,
+    ArchChatBody,
     ArchReviewBody,
     AdrCreateBody,
     AdrStatusBody,
@@ -70,6 +71,67 @@ async def get_architecture(am: ArtifactManager = Depends(get_am)):
         "adrs": adrs,
         "adr_count": len(adrs),
     }
+
+
+# ── Chat-based architecture generation ────────────
+
+
+@router.post("/chat")
+async def arch_chat(
+    payload: ArchChatBody,
+    project_root: Path = Depends(get_project_root),
+    ws: ConnectionManager = Depends(get_ws_manager),
+):
+    """Send a message in the architecture generation chat."""
+    from skaro_core.phases.architecture import ArchitecturePhase
+
+    phase = ArchitecturePhase(project_root=project_root)
+    async with llm_phase(ws, "architecture-chat", phase):
+        result = await phase.chat(
+            message=payload.message,
+            conversation=payload.conversation,
+        )
+    return {
+        "success": result.success,
+        "message": result.message,
+        "files": result.data.get("files", {}),
+        "has_architecture": result.data.get("has_architecture", False),
+    }
+
+
+@router.get("/chat/conversation")
+async def get_arch_chat_conversation(
+    project_root: Path = Depends(get_project_root),
+):
+    """Load persisted architecture chat conversation."""
+    from skaro_core.phases.architecture import ArchitecturePhase
+
+    phase = ArchitecturePhase(project_root=project_root)
+    conversation = phase.load_chat_conversation()
+
+    # Estimate context: system message (constitution, invariants, ADR index) + prompt template
+    system_msg = phase._build_system_message()
+    prompt_tpl = phase._load_prompt_template("architecture-chat")
+    ctx_chars = len(system_msg) + len(prompt_tpl)
+
+    conv_chars = sum(len(t.get("content", "")) for t in conversation)
+    est_tokens = (ctx_chars + conv_chars) // 4
+    return {
+        "conversation": conversation,
+        "context_tokens": est_tokens,
+    }
+
+
+@router.delete("/chat/conversation")
+async def clear_arch_chat_conversation(
+    project_root: Path = Depends(get_project_root),
+):
+    """Clear architecture chat conversation."""
+    from skaro_core.phases.architecture import ArchitecturePhase
+
+    phase = ArchitecturePhase(project_root=project_root)
+    phase.clear_chat_conversation()
+    return {"success": True}
 
 
 @router.post("/review")

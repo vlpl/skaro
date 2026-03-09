@@ -79,7 +79,7 @@ export default {
 	// Architecture
 	'arch.title': 'Architecture',
 	'arch.subtitle': 'System architecture, invariants, and Architecture Decision Records.',
-	'arch.empty': 'Architecture is empty.',
+	'arch.empty': 'Architecture has not been created yet. This is the next step after the constitution.',
 	'arch.step1': 'Open {file} in your IDE',
 	'arch.step2': 'Describe your architecture: components, data storage, communication, infrastructure',
 	'arch.step3': 'Come back and click Review Architecture',
@@ -103,6 +103,11 @@ export default {
 	'arch.invariants': 'Architectural Invariants',
 	'arch.adrs': 'Architecture Decision Records',
 	'arch.document': 'Architecture Document',
+	'arch.generate_hint': 'Generate architecture through a dialog with AI, or fill in the document manually using the editor.',
+	'arch.generate_with_ai': 'Generate with AI',
+	'arch.chat_tab': 'AI Generation',
+	'arch.chat_placeholder_start': 'Describe your project...',
+	'arch.chat_placeholder_reply': 'Write your reply...',
 
 	// ADR
 	'nav.adr': 'ADR',
@@ -352,6 +357,8 @@ export default {
 	'log.adr_generated': 'Generated {count} ADR(s)',
 	'log.arch_apply_start': 'Applying review recommendations...',
 	'log.arch_apply_done': 'Improved architecture ready for review',
+	'log.arch_chat_response': 'Architecture chat: response received',
+	'log.arch_chat_accepted': 'Architecture generated and saved',
 
 	// Settings
 	'nav.stats': 'Statistics',

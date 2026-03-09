@@ -7,6 +7,7 @@
 		loading = false,
 		tokenDisplay = '',
 		modelDisplay = '',
+		placeholder = '',
 		onSend = () => {},
 		onCancel = () => {},
 	} = $props();
@@ -45,7 +46,7 @@
 <div class="composebox" class:composebox-focus={inputFocused}>
 	<textarea
 		class="compose-input"
-		placeholder={$t('fix.placeholder')}
+		placeholder={placeholder || $t('fix.placeholder')}
 		bind:value={message}
 		bind:this={textareaEl}
 		onkeydown={handleKeydown}

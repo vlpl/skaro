@@ -11,6 +11,7 @@
 	 * @type {{
 	 *   modelDisplay?: string,
 	 *   prefillEvent?: string,
+	 *   placeholder?: string,
 	 *   loadConversationFn: () => Promise<{conversation: any[], context_tokens: number}>,
 	 *   sendMessageFn: (text: string, history: any[], signal: AbortSignal) => Promise<any>,
 	 *   applyFileFn: (filepath: string, content: string) => Promise<any>,
@@ -23,6 +24,7 @@
 	let {
 		modelDisplay = '',
 		prefillEvent = '',
+		placeholder = '',
 		loadConversationFn,
 		sendMessageFn,
 		applyFileFn,
@@ -235,7 +237,7 @@
 {/if}
 
 <div class="fix-bar">
-	<ComposeBox bind:message {loading} {tokenDisplay} {modelDisplay} onSend={sendMessage} onCancel={cancelRequest} />
+	<ComposeBox bind:message {loading} {tokenDisplay} {modelDisplay} {placeholder} onSend={sendMessage} onCancel={cancelRequest} />
 </div>
 
 <style>

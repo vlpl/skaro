@@ -41,6 +41,12 @@ class ArchReviewBody(BaseModel):
     domain_description: str = ""
 
 
+class ArchChatBody(BaseModel):
+    """Payload for architecture generation chat."""
+    message: str = Field(..., min_length=1)
+    conversation: list[dict[str, str]] = Field(default_factory=list)
+
+
 class ArchAcceptBody(BaseModel):
     proposed_architecture: str = Field(..., min_length=1)
 

@@ -5,11 +5,12 @@
 	import { status } from '$lib/stores/statusStore.js';
 	import { addLog, addError } from '$lib/stores/logStore.js';
 	import { cachedFetch, invalidate } from '$lib/api/cache.js';
-	import { Layers, AlertTriangle, CheckCircle, Loader2, Pencil, Sparkles, FolderOpen } from 'lucide-svelte';
+	import { Layers, AlertTriangle, Info, CheckCircle, Loader2, Pencil, Sparkles, FolderOpen, MessageSquare } from 'lucide-svelte';
 	import FileTabs from '$lib/ui/FileTabs.svelte';
 	import ArchActions from './architecture/ArchActions.svelte';
 	import ProposedArchitecture from './architecture/ProposedArchitecture.svelte';
 	import MdEditor from '$lib/ui/md-editor/MdEditor.svelte';
+	import FixChat from '$lib/ui/FixChat.svelte';
 
 	let data = $state(null);
 	let error = $state('');
@@ -23,6 +24,8 @@
 	let proposedArchitecture = $state('');
 	let activeTab = $state('document');
 	let showEditor = $state(false);
+	let showChat = $state(false);
+	let chatHasMessages = $state(false);
 
 	onMount(() => { load(); });
 
@@ -33,6 +36,69 @@
 				reviewResult = data.last_review;
 			}
 		} catch (e) { error = e.message; addError(e.message, 'architecture'); }
+	}
+
+	// ── Model display for chat ──
+	let modelDisplay = $derived.by(() => {
+		const s = $status;
+		if (!s?.config) return '—';
+		const cfg = s.config;
+		if (cfg.roles?.architect) {
+			const r = cfg.roles.architect;
+			return `${r.provider} / ${r.model}`;
+		}
+		return `${cfg.llm_provider} / ${cfg.llm_model}`;
+	});
+
+	// ── Dynamic placeholder ──
+	let chatPlaceholder = $derived(
+		chatHasMessages ? $t('arch.chat_placeholder_reply') : $t('arch.chat_placeholder_start')
+	);
+
+	// ── Architecture chat callbacks ──
+	async function loadChatConversationFn() {
+		const result = await api.loadArchChatConversation();
+		if (result.conversation?.length > 0) {
+			chatHasMessages = true;
+		}
+		return result;
+	}
+
+	function sendChatMessageFn(text, history, signal) {
+		return api.sendArchChat(text, history, signal);
+	}
+
+	async function applyChatFileFn(filepath, content) {
+		try {
+			const result = await api.saveArchitecture(content);
+			if (result.success) {
+				addLog($t('log.arch_chat_accepted'));
+				invalidate('architecture', 'status');
+				status.set(await api.getStatus());
+				showChat = false;
+				chatHasMessages = false;
+				await load();
+			}
+			return result;
+		} catch (e) {
+			addError(e.message, 'archChat');
+			return { success: false, message: e.message };
+		}
+	}
+
+	async function clearChatConversationFn() {
+		chatHasMessages = false;
+		return api.clearArchChatConversation();
+	}
+
+	function onChatSendSuccess() {
+		chatHasMessages = true;
+		addLog($t('log.arch_chat_response'));
+	}
+
+	function openChat() {
+		showChat = true;
+		activeTab = 'chat';
 	}
 
 	async function review() {
@@ -148,6 +214,9 @@
 	// ── Tabs ──
 	let archTabs = $derived.by(() => {
 		const tabs = [];
+		if (showChat && !data?.has_architecture) {
+			tabs.push({ id: 'chat', label: $t('arch.chat_tab') });
+		}
 		if (data?.content) {
 			tabs.push({ id: 'document', label: $t('arch.document') });
 		}
@@ -161,6 +230,7 @@
 	});
 
 	let archTabContent = $derived.by(() => {
+		if (activeTab === 'chat') return '';
 		if (activeTab === 'review') return reviewResult || '';
 		if (activeTab === 'invariants') return data?.invariants || '';
 		return data?.content || '';
@@ -190,17 +260,13 @@
 	<div class="loading-text"><Loader2 size={14} class="spin" /> {$t('app.loading')}</div>
 {:else}
 	{#if !data.has_architecture}
-		<div class="alert alert-warn"><AlertTriangle size={14} /> {$t('arch.empty')}</div>
-		<div class="instructions">
-			<h4>{$t('const.next_steps')}</h4>
-			<ol>
-				<li>{$t('arch.step1', { file: '.skaro/architecture/architecture.md' })}</li>
-				<li>{$t('arch.step2')}</li>
-				<li>{$t('arch.step3')}</li>
-			</ol>
-		</div>
+		<div class="alert alert-info"><Info size={14} /> {$t('arch.empty')}</div>
+		<p class="arch-hint">{$t('arch.generate_hint')}</p>
 		<div class="btn-group">
-			<button class="btn btn-primary" onclick={() => showEditor = true}>
+			<button class="btn btn-primary" onclick={openChat}>
+				<MessageSquare size={14} /> {$t('arch.generate_with_ai')}
+			</button>
+			<button class="btn" onclick={() => showEditor = true}>
 				<Pencil size={14} /> {$t('editor.edit')}
 			</button>
 		</div>
@@ -233,7 +299,21 @@
 			activeTab={activeTab}
 			content={archTabContent}
 			onSelectTab={(id) => activeTab = id}
-		/>
+		>
+			{#snippet chatSlot()}
+				<FixChat
+					{modelDisplay}
+					errorSource="archChat"
+					autoLoad={true}
+					placeholder={chatPlaceholder}
+					loadConversationFn={loadChatConversationFn}
+					sendMessageFn={sendChatMessageFn}
+					applyFileFn={applyChatFileFn}
+					clearConversationFn={clearChatConversationFn}
+					onSendSuccess={onChatSendSuccess}
+				/>
+			{/snippet}
+		</FileTabs>
 	{/if}
 
 	<!-- Review action buttons — shown below review content -->
@@ -282,5 +362,11 @@
 		background: var(--sf);
 		border: 0.0625rem solid var(--bd);
 		border-radius: var(--r);
+	}
+
+	.arch-hint {
+		color: var(--dm);
+		font-size: 0.875rem;
+		margin-bottom: 0.75rem;
 	}
 </style>

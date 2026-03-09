@@ -138,6 +138,12 @@ export const api = {
 		put('/api/architecture', { content }, signal),
 	applyArchReview: (signal) => post('/api/architecture/apply-review', {}, signal),
 
+	// Architecture chat (generation)
+	sendArchChat: (/** @type {string} */ message, /** @type {any[]} */ conversation, signal) =>
+		post('/api/architecture/chat', { message, conversation }, signal),
+	loadArchChatConversation: (signal) => get('/api/architecture/chat/conversation', signal),
+	clearArchChatConversation: (signal) => del('/api/architecture/chat/conversation', signal),
+
 	// Dev Plan
 	getDevPlan: (signal) => get('/api/devplan', signal),
 	generateDevPlan: (signal) => post('/api/devplan/generate', {}, signal),

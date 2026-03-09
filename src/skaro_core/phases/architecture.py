@@ -1,12 +1,14 @@
-"""Architecture review phase."""
+"""Architecture review and generation phase."""
 
 from __future__ import annotations
 
 import json
 import re
 from datetime import date as _date
+from pathlib import Path
 from typing import Any
 
+from skaro_core.llm.base import LLMMessage
 from skaro_core.phases.base import BasePhase, PhaseResult
 
 
@@ -18,6 +20,112 @@ _PROPOSED_HEADING_RE = re.compile(
 
 class ArchitecturePhase(BasePhase):
     phase_name = "architecture"
+
+    # ── Chat-based architecture generation ─────────────
+
+    async def chat(
+        self,
+        message: str,
+        conversation: list[dict[str, str]],
+    ) -> PhaseResult:
+        """Conversational architecture generation.
+
+        The LLM acts as an architect: asks clarifying questions or generates
+        the full architecture document when it has enough context.
+
+        When the LLM generates architecture, it wraps it in a
+        ``\u0060\u0060\u0060architecture.md`` code fence which is extracted
+        as a proposed file.
+        """
+        prompt_template = self._load_prompt_template("architecture-chat")
+        system = self._build_system_message()
+        if prompt_template:
+            system += "\n\n---\n\n" + prompt_template
+
+        messages: list[LLMMessage] = [LLMMessage(role="system", content=system)]
+
+        # Replay conversation history
+        for turn in conversation:
+            role = turn.get("role", "user")
+            content = turn.get("content", "")
+            if role in ("user", "assistant") and content.strip():
+                messages.append(LLMMessage(role=role, content=content))
+
+        # Current user message (+ language reminder)
+        final_message = message
+        if self.config.lang != "en":
+            final_message += f"\n\n---\nReminder: {self._lang_instruction()}"
+        messages.append(LLMMessage(role="user", content=final_message))
+
+        response_content = await self._stream_collect(messages, min_tokens=16384)
+
+        # Check if LLM produced an architecture document
+        proposed_files = self._parse_file_blocks(response_content)
+        arch_content = proposed_files.get("architecture.md", "")
+
+        file_diffs: dict[str, dict] = {}
+        if arch_content:
+            file_diffs["architecture.md"] = {
+                "old": "",
+                "new": arch_content,
+                "is_new": True,
+            }
+
+        # Strip the code fence from the visible message
+        display_message = response_content
+        if arch_content:
+            display_message = re.sub(
+                r"```architecture\.md\s*\n[\s\S]*?\n\s*```",
+                "",
+                display_message,
+            ).strip()
+
+        updated_conversation = list(conversation) + [
+            {"role": "user", "content": message},
+            {"role": "assistant", "content": response_content},
+        ]
+
+        # Persist conversation
+        self._save_chat_conversation(updated_conversation)
+
+        return PhaseResult(
+            success=True,
+            message=display_message,
+            data={
+                "files": file_diffs,
+                "conversation": updated_conversation,
+                "has_architecture": bool(arch_content),
+            },
+        )
+
+    def load_chat_conversation(self) -> list[dict]:
+        """Load persisted architecture chat conversation."""
+        path = self._chat_conv_path()
+        if path.exists():
+            try:
+                return json.loads(path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                return []
+        return []
+
+    def clear_chat_conversation(self) -> None:
+        """Clear persisted architecture chat conversation."""
+        path = self._chat_conv_path()
+        if path.exists():
+            path.unlink()
+
+    def _save_chat_conversation(self, conversation: list[dict]) -> None:
+        path = self._chat_conv_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(conversation, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    def _chat_conv_path(self) -> Path:
+        return self.artifacts.skaro / "architecture" / "chat-conversation.json"
+
+    # ── Review (existing) ──────────────────────────────
 
     async def run(self, feature: str | None = None, **kwargs: Any) -> PhaseResult:
         architecture_draft = kwargs.get("architecture_draft", "")
