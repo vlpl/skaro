@@ -20,6 +20,7 @@ UI checks whether answers are filled to determine state.
 
 from __future__ import annotations
 
+import asyncio
 import re
 from typing import Any, AsyncIterator
 
@@ -48,14 +49,37 @@ class ClarifyPhase(BasePhase):
             "3-7 questions max."
         )
 
-        extra_context = {"Specification": spec}
+        extra_context: dict[str, str] = {"Specification": spec}
+        cacheable_context: dict[str, str] = {}
+
+        # Architecture — so LLM knows project structure decisions
+        architecture = self.artifacts.read_architecture()
+        if architecture.strip():
+            cacheable_context["Architecture"] = architecture
+
+        # AST index — so LLM sees what code already exists
+        from skaro_core.context import SmartContextBuilder
+
+        builder = SmartContextBuilder(self.artifacts.root)
+        smart = await asyncio.to_thread(
+            builder.build,
+            stage_section=spec,
+            max_full_files=0,  # Clarify only needs signatures, not full code
+        )
+        if smart.signatures:
+            cacheable_context["Project API Index (existing code)"] = smart.signatures
+
+        # Project file tree — so LLM sees what files exist
+        project_tree = await self._scan_project_tree_async()
+        if project_tree:
+            extra_context["Current project file tree"] = project_tree
 
         # Add existing clarifications if any
         existing = self.artifacts.find_and_read_task_file(task, CLARIFY_FILENAME)
         if existing:
             extra_context["Previous clarifications"] = existing
 
-        messages = self._build_messages(prompt, extra_context)
+        messages = self._build_messages(prompt, extra_context, cacheable_context=cacheable_context)
         response_content = await self._stream_collect(messages, task=task or "")
         return response_content
 
@@ -218,7 +242,29 @@ class ClarifyPhase(BasePhase):
             "Return JSON array of questions with options."
         )
 
-        messages = self._build_messages(prompt, {"Specification": spec})
+        extra_context: dict[str, str] = {"Specification": spec}
+        cacheable_context: dict[str, str] = {}
+
+        architecture = self.artifacts.read_architecture()
+        if architecture.strip():
+            cacheable_context["Architecture"] = architecture
+
+        from skaro_core.context import SmartContextBuilder
+
+        builder = SmartContextBuilder(self.artifacts.root)
+        smart = await asyncio.to_thread(
+            builder.build,
+            stage_section=spec,
+            max_full_files=0,
+        )
+        if smart.signatures:
+            cacheable_context["Project API Index (existing code)"] = smart.signatures
+
+        project_tree = await self._scan_project_tree_async()
+        if project_tree:
+            extra_context["Current project file tree"] = project_tree
+
+        messages = self._build_messages(prompt, extra_context, cacheable_context=cacheable_context)
         async for chunk in self.llm.stream(messages):
             yield chunk
 
