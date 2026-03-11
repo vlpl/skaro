@@ -1,6 +1,6 @@
 <script>
 	import { t } from '$lib/i18n/index.js';
-	import { ArrowUp, Square, Cpu } from 'lucide-svelte';
+	import { ArrowUp, Square, Cpu, Crosshair } from 'lucide-svelte';
 
 	let {
 		message = $bindable(''),
@@ -8,8 +8,11 @@
 		tokenDisplay = '',
 		modelDisplay = '',
 		placeholder = '',
+		scopeCount = 0,
+		showScope = false,
 		onSend = () => {},
 		onCancel = () => {},
+		onScopeClick = () => {},
 	} = $props();
 
 	let inputFocused = $state(false);
@@ -29,7 +32,21 @@
 
 	function handleKeydown(e) {
 		if (e.key === 'Enter') {
-			if (e.ctrlKey || e.metaKey) {
+			if (e.shiftKey || e.ctrlKey || e.metaKey) {
+				// Insert newline manually (browser doesn't do it for Ctrl/Cmd+Enter)
+				e.preventDefault();
+				const el = textareaEl;
+				if (el) {
+					const start = el.selectionStart;
+					const end = el.selectionEnd;
+					message = message.substring(0, start) + '\n' + message.substring(end);
+					// Wait for Svelte to update the DOM, then restore cursor
+					requestAnimationFrame(() => {
+						el.selectionStart = el.selectionEnd = start + 1;
+						el.style.height = 'auto';
+						el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+					});
+				}
 				return;
 			}
 			e.preventDefault();
@@ -56,7 +73,18 @@
 		disabled={loading}
 	></textarea>
 	<div class="compose-bar">
-		<div class="bar-spacer"></div>
+		<div class="bar-spacer">
+			{#if showScope}
+				<button class="scope-pill" onclick={onScopeClick}>
+					<Crosshair size={12} />
+					{#if scopeCount > 0}
+						<span class="scope-label">{$t('scope.n_files', { n: scopeCount })}</span>
+					{:else}
+						<span class="scope-label scope-empty">{$t('scope.no_scope')}</span>
+					{/if}
+				</button>
+			{/if}
+		</div>
 		{#if modelDisplay}
 			<span class="model-info"><Cpu size={11} /> {modelDisplay}</span>
 		{/if}
@@ -133,7 +161,34 @@
 
 	.bar-spacer {
 		flex: 1;
+		display: flex;
+		align-items: center;
 	}
+
+	.scope-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		padding: 0.1875rem 0.625rem;
+		border: 0.0625rem solid var(--bd);
+		border-radius: 1rem;
+		background: transparent;
+		color: var(--dm);
+		font-size: 0.6875rem;
+		font-family: var(--font-ui);
+		cursor: pointer;
+		transition: all 0.12s;
+		white-space: nowrap;
+	}
+
+	.scope-pill:hover {
+		border-color: var(--ac);
+		color: var(--ac);
+		background: rgba(88, 157, 246, 0.06);
+	}
+
+	.scope-label { line-height: 1; }
+	.scope-empty { font-style: italic; }
 
 	.token-estimate {
 		font-size: 0.75rem;

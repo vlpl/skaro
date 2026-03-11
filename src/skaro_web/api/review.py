@@ -55,6 +55,7 @@ async def run_project_fix(
             message=payload.message,
             conversation=payload.conversation,
             scope_tasks=payload.scope_tasks,
+            scope_paths=payload.scope_paths,
         )
     if result.success:
         await ws.broadcast({"event": "review:fix_response"})

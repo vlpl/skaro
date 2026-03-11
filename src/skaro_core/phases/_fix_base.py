@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 
 from skaro_core.llm.base import LLMMessage
-from skaro_core.phases.base import BasePhase, PhaseResult
+from skaro_core.phases.base import BasePhase, PhaseResult, SKIP_DIRS
 
 # ── Shared system-prompt fragment ────────────────────
 
@@ -160,6 +160,65 @@ class ConversationalFixBase(BasePhase):
             except (UnicodeDecodeError, PermissionError):
                 return None
         return None
+
+    def _read_scope_files(
+        self,
+        scope_paths: list[str],
+        *,
+        max_files: int = 30,
+        max_file_size: int = 15_000,
+    ) -> str:
+        """Read full code for user-selected scope paths.
+
+        Paths can be files or directories. Directories are expanded
+        recursively to include all text files within.
+        User explicitly chose these paths — no extension filtering on files.
+
+        Returns formatted markdown blocks ready for LLM context.
+        """
+        root = self.artifacts.root
+        collected: dict[str, str] = {}
+
+        for sp in scope_paths:
+            if len(collected) >= max_files:
+                break
+            target = root / sp
+            if target.is_file():
+                # User selected this file explicitly — read it
+                self._read_into(target, root, collected, max_file_size)
+            elif target.is_dir():
+                for child in sorted(target.rglob("*")):
+                    if len(collected) >= max_files:
+                        break
+                    parts = child.relative_to(root).parts
+                    if any(d in SKIP_DIRS or d.startswith(".") for d in parts[:-1]):
+                        continue
+                    if child.is_file():
+                        self._read_into(child, root, collected, max_file_size)
+
+        if not collected:
+            return ""
+        parts = []
+        for fpath, content in collected.items():
+            parts.append(f"### {fpath}\n```\n{content}\n```")
+        return "\n\n".join(parts)
+
+    @staticmethod
+    def _read_into(
+        path: Path, root: Path,
+        target: dict[str, str], max_size: int,
+    ) -> None:
+        """Read a single file into the target dict."""
+        rel = str(path.relative_to(root)).replace("\\", "/")
+        if rel in target:
+            return
+        try:
+            content = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, PermissionError):
+            return
+        if len(content) > max_size:
+            content = content[:max_size] + "\n... (truncated)"
+        target[rel] = content
 
     def _apply_file_to_disk(self, filepath: str, content: str) -> PhaseResult:
         """Validate path, write file, return result (no logging)."""

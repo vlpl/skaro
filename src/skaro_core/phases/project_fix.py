@@ -31,6 +31,7 @@ class ProjectFixPhase(ConversationalFixBase):
         user_message: str = kwargs.get("message", "")
         conversation: list[dict] = kwargs.get("conversation", [])
         scope_tasks: list[str] = kwargs.get("scope_tasks", [])
+        scope_paths: list[str] = kwargs.get("scope_paths", [])
 
         if not user_message.strip():
             return PhaseResult(success=False, message="Message is required.")
@@ -42,7 +43,7 @@ class ProjectFixPhase(ConversationalFixBase):
         smart = await asyncio.to_thread(
             builder.build,
             stage_section=user_message,
-            max_full_files=15,
+            max_full_files=0,  # Tier 1 is handled by scope_paths
             max_full_file_size=15_000,
         )
 
@@ -55,8 +56,12 @@ class ProjectFixPhase(ConversationalFixBase):
             cacheable_context["Project API Index (all modules)"] = smart.signatures
 
         extra_context = await asyncio.to_thread(self._gather_dynamic_context, scope_tasks)
-        if smart.full_files:
-            extra_context["Relevant source files (full code)"] = smart.full_files
+
+        # Tier 1 files: user-selected scope (full code)
+        if scope_paths:
+            scope_code = await asyncio.to_thread(self._read_scope_files, scope_paths)
+            if scope_code:
+                extra_context["Selected source files (full code)"] = scope_code
 
         response, proposed, file_diffs, updated_conv = await self._run_fix(
             user_message, conversation, extra_context,

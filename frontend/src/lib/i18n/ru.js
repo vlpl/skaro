@@ -351,6 +351,17 @@ export default {
 	'fix.cancelled': 'Запрос отменён',
 	'fix.expand': 'Развернуть',
 	'fix.collapse': 'Свернуть',
+
+	// Scope selector
+	'scope.title': 'Выбор скопа',
+	'scope.search_placeholder': 'Фильтр файлов...',
+	'scope.no_scope': 'Скоп не выбран',
+	'scope.n_files': '{n} файл(ов)',
+	'scope.selected_count': '{n} файл(ов) выбрано',
+	'scope.clear': 'Очистить',
+	'scope.cancel': 'Отмена',
+	'scope.confirm': 'Применить',
+	'scope.empty': 'Исходные файлы в проекте не найдены.',
 	'log.fix_response': 'Получен ответ на исправление для {name}',
 	'log.fix_applied': 'Применено исправление: {file}',
 	'log.adr_generate_start': 'Генерация ADR из архитектуры...',

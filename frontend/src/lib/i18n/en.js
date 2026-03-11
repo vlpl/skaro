@@ -351,6 +351,17 @@ export default {
 	'fix.cancelled': 'Request cancelled',
 	'fix.expand': 'Expand',
 	'fix.collapse': 'Collapse',
+
+	// Scope selector
+	'scope.title': 'Select Scope',
+	'scope.search_placeholder': 'Filter files...',
+	'scope.no_scope': 'No scope',
+	'scope.n_files': '{n} file(s)',
+	'scope.selected_count': '{n} file(s) selected',
+	'scope.clear': 'Clear',
+	'scope.cancel': 'Cancel',
+	'scope.confirm': 'Apply',
+	'scope.empty': 'No source files found in the project.',
 	'log.fix_response': 'Fix response received for {name}',
 	'log.fix_applied': 'Applied fix: {file}',
 	'log.adr_generate_start': 'Generating ADRs from architecture...',

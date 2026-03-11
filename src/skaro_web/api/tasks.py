@@ -406,7 +406,7 @@ async def run_fix(
 
     phase = FixPhase(project_root=project_root)
     async with llm_phase(ws, "fix", phase):
-        result = await phase.run(task=name, message=payload.message, conversation=payload.conversation)
+        result = await phase.run(task=name, message=payload.message, conversation=payload.conversation, scope_paths=payload.scope_paths)
     if result.success:
         await ws.broadcast({"event": "fix:response", "task": name})
     return {

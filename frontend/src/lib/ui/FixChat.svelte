@@ -6,14 +6,17 @@
 	import ChatMessage from '$lib/pages/tasks/ChatMessage.svelte';
 	import ComposeBox from '$lib/pages/tasks/ComposeBox.svelte';
 	import DiffModal from '$lib/ui/DiffModal.svelte';
+	import ScopeModal from '$lib/ui/ScopeModal.svelte';
 
 	/**
 	 * @type {{
 	 *   modelDisplay?: string,
 	 *   prefillEvent?: string,
 	 *   placeholder?: string,
+	 *   scopeEnabled?: boolean,
 	 *   loadConversationFn: () => Promise<{conversation: any[], context_tokens: number}>,
-	 *   sendMessageFn: (text: string, history: any[], signal: AbortSignal) => Promise<any>,
+	 *   sendMessageFn: (text: string, history: any[], signal: AbortSignal, scopePaths: string[]) => Promise<any>,
+	 *   loadTreeFn?: () => Promise<{tree: any[]}>,
 	 *   applyFileFn: (filepath: string, content: string) => Promise<any>,
 	 *   clearConversationFn: () => Promise<void>,
 	 *   onSendSuccess?: () => void,
@@ -25,8 +28,10 @@
 		modelDisplay = '',
 		prefillEvent = '',
 		placeholder = '',
+		scopeEnabled = false,
 		loadConversationFn,
 		sendMessageFn,
+		loadTreeFn = null,
 		applyFileFn,
 		clearConversationFn,
 		onSendSuccess = () => {},
@@ -42,6 +47,12 @@
 	let initialLoaded = $state(false);
 	let appliedFiles = $state({});
 	let diffModal = $state(null);
+
+	// Scope state
+	let scopePaths = $state([]);
+	let fileTree = $state([]);
+	let showScopeModal = $state(false);
+	let treeLoaded = $state(false);
 
 	/** @type {AbortController | null} */
 	let abortController = $state(null);
@@ -105,11 +116,46 @@
 		Math.round(conversation.reduce((sum, t) => sum + (t.content?.length || 0), 0) / 4)
 	);
 	let messageTokens = $derived(Math.round(message.length / 4));
-	let totalTokens = $derived(contextTokens + conversationTokens + messageTokens);
+
+	// Estimate tokens from scope-selected files based on file sizes from tree
+	let scopeTokens = $derived.by(() => {
+		if (scopePaths.length === 0 || fileTree.length === 0) return 0;
+		const selectedSet = new Set(scopePaths);
+		let bytes = 0;
+		function walk(nodes) {
+			for (const n of nodes) {
+				if (n.type === 'file' && selectedSet.has(n.path)) bytes += n.size || 0;
+				if (n.children) walk(n.children);
+			}
+		}
+		walk(fileTree);
+		return Math.round(bytes / 4);
+	});
+
+	let totalTokens = $derived(contextTokens + conversationTokens + messageTokens + scopeTokens);
 	let tokenDisplay = $derived.by(() => {
 		const k = totalTokens / 1000;
 		return k >= 1 ? `~${k.toFixed(0)}k ${$t('fix.tokens')}` : `~${totalTokens} ${$t('fix.tokens')}`;
 	});
+
+	async function openScopeModal() {
+		if (!treeLoaded && loadTreeFn) {
+			try {
+				const data = await loadTreeFn();
+				fileTree = data.tree || [];
+				treeLoaded = true;
+			} catch (e) {
+				addError(e.message, errorSource);
+				return;
+			}
+		}
+		showScopeModal = true;
+	}
+
+	function handleScopeConfirm(paths) {
+		scopePaths = paths;
+		showScopeModal = false;
+	}
 
 	async function sendMessage() {
 		const text = message.trim();
@@ -123,7 +169,7 @@
 
 		try {
 			const history = conversation.slice(0, -1).map((turn) => ({ role: turn.role, content: turn.content }));
-			const result = await sendMessageFn(text, history, controller.signal);
+			const result = await sendMessageFn(text, history, controller.signal, scopePaths);
 			if (result.success) {
 				conversation = [...conversation, {
 					role: 'assistant', content: result.message,
@@ -224,6 +270,15 @@
 	</div>
 {/if}
 
+{#if showScopeModal}
+	<ScopeModal
+		tree={fileTree}
+		selected={scopePaths}
+		onConfirm={handleScopeConfirm}
+		onClose={() => showScopeModal = false}
+	/>
+{/if}
+
 {#if diffModal}
 	<DiffModal
 		filepath={diffModal.filepath}
@@ -237,7 +292,18 @@
 {/if}
 
 <div class="fix-bar">
-	<ComposeBox bind:message {loading} {tokenDisplay} {modelDisplay} {placeholder} onSend={sendMessage} onCancel={cancelRequest} />
+	<ComposeBox
+		bind:message
+		{loading}
+		{tokenDisplay}
+		{modelDisplay}
+		{placeholder}
+		showScope={scopeEnabled}
+		scopeCount={scopePaths.length}
+		onSend={sendMessage}
+		onCancel={cancelRequest}
+		onScopeClick={openScopeModal}
+	/>
 </div>
 
 <style>

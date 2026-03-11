@@ -38,6 +38,7 @@ class FixPhase(ConversationalFixBase):
 
         user_message: str = kwargs.get("message", "")
         conversation: list[dict] = kwargs.get("conversation", [])
+        scope_paths: list[str] = kwargs.get("scope_paths", [])
 
         if not user_message.strip():
             return PhaseResult(success=False, message="Message is required.")
@@ -49,11 +50,11 @@ class FixPhase(ConversationalFixBase):
         smart = await asyncio.to_thread(
             builder.build,
             stage_section=user_message,
-            max_full_files=15,
+            max_full_files=0,  # Tier 1 is handled by scope_paths
             max_full_file_size=15_000,
         )
 
-        # Cacheable context (stable across fix turns within same task)
+        # Cacheable: architecture + AST index
         cacheable_context: dict[str, str] = {}
         architecture = self.artifacts.read_architecture()
         if architecture.strip():
@@ -61,7 +62,7 @@ class FixPhase(ConversationalFixBase):
         if smart.signatures:
             cacheable_context["Project API Index (all modules)"] = smart.signatures
 
-        # Dynamic context (may change between turns)
+        # Dynamic context
         extra_context: dict[str, str] = {}
         spec = self.artifacts.find_and_read_task_file(task, "spec.md")
         if spec:
@@ -78,8 +79,13 @@ class FixPhase(ConversationalFixBase):
             notes_path = self.artifacts.find_stage_dir(task, s) / "AI_NOTES.md"
             if notes_path.exists():
                 extra_context[f"Stage {s} AI_NOTES"] = notes_path.read_text(encoding="utf-8")
-        if smart.full_files:
-            extra_context["Relevant source files (full code)"] = smart.full_files
+
+        # Tier 1 files: user-selected scope (full code)
+        if scope_paths:
+            scope_code = await asyncio.to_thread(self._read_scope_files, scope_paths)
+            if scope_code:
+                extra_context["Selected source files (full code)"] = scope_code
+
         tree = await self._scan_project_tree_async()
         if tree:
             extra_context["Project File Tree"] = tree

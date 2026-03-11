@@ -191,8 +191,8 @@ export const api = {
 		put(`/api/tasks/${name}/tests/commands`, { commands }, signal),
 
 	// Fix (conversational bug fixing)
-	sendFix: (/** @type {string} */ name, /** @type {string} */ message, /** @type {any[]} */ conversation, signal) =>
-		post(`/api/tasks/${name}/fix`, { message, conversation }, signal),
+	sendFix: (/** @type {string} */ name, /** @type {string} */ message, /** @type {any[]} */ conversation, /** @type {string[]} */ scope_paths, signal) =>
+		post(`/api/tasks/${name}/fix`, { message, conversation, scope_paths: scope_paths || [] }, signal),
 	applyFixFile: (/** @type {string} */ name, /** @type {string} */ filepath, /** @type {string} */ content, signal) =>
 		post(`/api/tasks/${name}/fix/apply`, { filepath, content }, signal),
 	getFixLog: (/** @type {string} */ name, signal) => get(`/api/tasks/${name}/fix/log`, signal),
@@ -203,12 +203,15 @@ export const api = {
 	runReviewTests: (signal) => post('/api/review/tests', {}, signal),
 	getReviewResults: (signal) => get('/api/review/results', signal),
 	getReviewScope: (signal) => get('/api/review/scope', signal),
-	sendProjectFix: (/** @type {string} */ message, /** @type {any[]} */ conversation, /** @type {string[]} */ scope_tasks, signal) =>
-		post('/api/review/fix', { message, conversation, scope_tasks }, signal),
+	sendProjectFix: (/** @type {string} */ message, /** @type {any[]} */ conversation, /** @type {string[]} */ scope_tasks, /** @type {string[]} */ scope_paths, signal) =>
+		post('/api/review/fix', { message, conversation, scope_tasks, scope_paths: scope_paths || [] }, signal),
 	applyProjectFixFile: (/** @type {string} */ filepath, /** @type {string} */ content, signal) =>
 		post('/api/review/fix/apply', { filepath, content }, signal),
 	loadProjectFixConversation: (signal) => get('/api/review/fix/conversation', signal),
 	clearProjectFixConversation: (signal) => del('/api/review/fix/conversation', signal),
+
+	// File tree (scope selection)
+	getFileTree: (signal) => get('/api/files/tree', signal),
 
 	// Config
 	getConfig: (signal) => get('/api/config', signal),

@@ -40,8 +40,8 @@
 		return api.loadFixConversation(task);
 	}
 
-	function sendMessageFn(text, history, signal) {
-		return api.sendFix(task, text, history, signal);
+	function sendMessageFn(text, history, signal, scopePaths) {
+		return api.sendFix(task, text, history, scopePaths, signal);
 	}
 
 	function applyFileFn(filepath, content) {
@@ -61,8 +61,10 @@
 	{modelDisplay}
 	prefillEvent="skaro:prefill-fix"
 	errorSource="fix"
+	scopeEnabled={true}
 	{loadConversationFn}
 	{sendMessageFn}
+	loadTreeFn={() => api.getFileTree()}
 	{applyFileFn}
 	{clearConversationFn}
 	{onSendSuccess}
