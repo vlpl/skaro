@@ -28,6 +28,23 @@
 	let baseUrlId = $derived(`role-${role.id}-base-url`);
 	let maxTokensId = $derived(`role-${role.id}-max-tokens`);
 	let tempId = $derived(`role-${role.id}-temperature`);
+
+	const OTHER = '__other__';
+	let models = $derived(modelsFor(override.provider));
+	let customMode = $state(false);
+	let showCustom = $derived(customMode || (override.model && !models.includes(override.model)));
+	let selectValue = $derived(showCustom ? OTHER : override.model);
+
+	function onSelectModel(e) {
+		const v = e.target.value;
+		if (v === OTHER) {
+			customMode = true;
+			override.model = '';
+		} else {
+			customMode = false;
+			override.model = v;
+		}
+	}
 </script>
 
 <div class="role-card">
@@ -52,9 +69,18 @@
 				</div>
 				<div class="form-field">
 					<label for={`role-${role.id}-model`}>{$t('settings.model')}</label>
-					<select id={`role-${role.id}-model`} bind:value={override.model}>
-						{#each modelsFor(override.provider) as m}<option value={m}>{m}</option>{/each}
+					<select id={`role-${role.id}-model`} value={selectValue} onchange={onSelectModel}>
+						{#each models as m}<option value={m}>{m}</option>{/each}
+						<option value={OTHER}>Other…</option>
 					</select>
+					{#if showCustom}
+						<input
+							type="text"
+							bind:value={override.model}
+							placeholder="model-name"
+							class="custom-model-input"
+						/>
+					{/if}
 				</div>
 			</div>
 			<div class="form-row">
@@ -120,7 +146,7 @@
 	.role-card {
 		border: 0.0625rem solid var(--bd);
 		border-radius: var(--r);
-		overflow: hidden;
+		overflow: visible;
 	}
 
 	.role-header {
@@ -132,6 +158,7 @@
 		width: 100%;
 		background: none;
 		border: none;
+		border-radius: var(--r);
 		color: inherit;
 		font: inherit;
 		text-align: left;
@@ -238,6 +265,10 @@
 	.form-field input:focus {
 		outline: none;
 		border-color: var(--ac);
+	}
+
+	.custom-model-input {
+		margin-top: 0.375rem;
 	}
 
 	.input-with-icon {

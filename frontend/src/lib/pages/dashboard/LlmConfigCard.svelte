@@ -1,7 +1,7 @@
 <script>
 	import { t } from '$lib/i18n/index.js';
 	import { Cpu } from 'lucide-svelte';
-	import { PROVIDER_LABELS } from '$lib/ui/icons/providers.js';
+	import { providerLabels } from '$lib/ui/icons/providers.js';
 
 	let { config = {}, roles = [] } = $props();
 </script>
@@ -16,7 +16,7 @@
 			<span class="llm-label">{$t('dash.default_model')}</span>
 			<span class="llm-val">
 				{#if config?.llm_provider}<img class="provider-icon" src="/icons/providers/{config.llm_provider}.svg" alt="" />{/if}
-				{PROVIDER_LABELS[config?.llm_provider] || config?.llm_provider || '—'} / {config?.llm_model || '—'}
+				{$providerLabels[config?.llm_provider] || config?.llm_provider || '—'} / {config?.llm_model || '—'}
 			</span>
 		</div>
 		{#each roles as role}
@@ -24,7 +24,7 @@
 				<span class="llm-label">{$t('settings.role_' + role.name)}</span>
 				<span class="llm-val">
 					<img class="provider-icon" src="/icons/providers/{role.provider}.svg" alt="" />
-					{PROVIDER_LABELS[role.provider] || role.provider} / {role.model}
+					{$providerLabels[role.provider] || role.provider} / {role.model}
 				</span>
 			</div>
 		{/each}

@@ -11,6 +11,7 @@
 	import LanguagePicker from '$lib/pages/settings/LanguagePicker.svelte';
 	import ThemePicker from '$lib/pages/settings/ThemePicker.svelte';
 	import { setTheme } from '$lib/stores/themeStore.js';
+	import { setProviderLabelsFromPresets } from '$lib/ui/icons/providers.js';
 
 	let config = $state(null);
 	let presets = $state({});
@@ -18,13 +19,6 @@
 	let saved = $state(false);
 	let error = $state('');
 	let activeTab = $state('general');
-
-	const PROVIDER_MODELS = {
-		anthropic: ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251120', 'claude-haiku-4-5-20251001'],
-		openai: ['gpt-5.2', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'o3', 'o4-mini', 'gpt-4o'],
-		groq: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'meta-llama/llama-4-scout-17b-16e-instruct', 'meta-llama/llama-4-maverick-17b-128e-instruct', 'qwen/qwen3-32b', 'moonshotai/kimi-k2-instruct-0905', 'deepseek-r1-distill-llama-70b'],
-		ollama: ['llama3.3', 'llama4:scout', 'qwen3', 'qwen3-coder', 'deepseek-v3', 'deepseek-r1', 'mistral', 'codellama', 'phi4', 'gemma3'],
-	};
 
 	const roles = [
 		{ id: 'architect', icon: Compass, labelKey: 'settings.role_architect', descKey: 'settings.role_architect_desc', color: 'var(--ac)' },
@@ -49,12 +43,14 @@
 	let lang = $state('en');
 	let theme = $state('dark');
 	let uiAutoOpen = $state(true);
-	const providerNames = Object.keys(PROVIDER_MODELS);
+	// Provider names and models come from the backend (providers.yaml)
+	let providerNames = $derived(config?._provider_keys || Object.keys(presets));
 
 	onMount(async () => {
 		try {
 			config = await cachedFetch('config', () => api.getConfig());
 			presets = config._provider_presets || {};
+			setProviderLabelsFromPresets(presets);
 			projectName = config.project_name || '';
 			projectDescription = config.project_description || '';
 			llm = {
@@ -77,7 +73,7 @@
 		} catch (e) { error = e.message; addError(e.message, 'settings'); }
 	});
 
-	function modelsFor(provider) { return PROVIDER_MODELS[provider] || []; }
+	function modelsFor(provider) { return presets[provider]?.models || []; }
 
 	function onProviderChange() {
 		llm.model = modelsFor(llm.provider)[0] || '';

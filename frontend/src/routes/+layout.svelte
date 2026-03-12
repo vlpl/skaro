@@ -7,6 +7,7 @@
 	import { status, wsConnected, taskDetail, updateInfo } from '$lib/stores/statusStore.js';
 	import { addLog, startLlm, addLlmChunk, endLlm } from '$lib/stores/logStore.js';
 	import { cachedFetch, invalidate } from '$lib/api/cache.js';
+	import { setProviderLabels } from '$lib/ui/icons/providers.js';
 	import Sidebar from '$lib/layout/Sidebar.svelte';
 	import Toolbar from '$lib/layout/Toolbar.svelte';
 	import BottomPanel from '$lib/layout/BottomPanel.svelte';
@@ -87,7 +88,9 @@
 
 	async function loadStatus() {
 		try {
-			status.set(await cachedFetch('status', () => api.getStatus(), 5000));
+			const data = await cachedFetch('status', () => api.getStatus(), 5000);
+			status.set(data);
+			if (data?._provider_labels) setProviderLabels(data._provider_labels);
 			error = '';
 		} catch (e) {
 			error = e.message;

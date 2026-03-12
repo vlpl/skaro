@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends
 from skaro_core.artifacts import ArtifactManager
 from skaro_core.config import load_config, load_token_usage, load_usage_log
 from skaro_core.phases.base import SKIP_DIRS
+from skaro_core.providers import get_providers
 from skaro_web.api.deps import get_am, get_project_root
 
 router = APIRouter(prefix="/api", tags=["status"])
@@ -95,6 +96,7 @@ def _build_status(am: ArtifactManager, project_root: Path) -> dict[str, Any]:
         "tokens": tokens,
         "git_staged_count": _git_staged_count(project_root),
         "review_passed": _review_passed(am),
+        "_provider_labels": {k: v.name for k, v in get_providers().items()},
     }
 
 

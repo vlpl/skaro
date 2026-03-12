@@ -131,6 +131,21 @@ def create_llm_adapter(config: LLMConfig) -> BaseLLMAdapter:
     elif provider == "groq":
         from skaro_core.llm.groq_adapter import GroqAdapter
         return GroqAdapter(config)
+    elif provider == "openrouter":
+        from skaro_core.llm.openrouter_adapter import OpenRouterAdapter
+        return OpenRouterAdapter(config)
+    elif provider == "deepseek":
+        from skaro_core.llm.deepseek_adapter import DeepSeekAdapter
+        return DeepSeekAdapter(config)
+    elif provider == "qwen":
+        from skaro_core.llm.qwen_adapter import QwenAdapter
+        return QwenAdapter(config)
+    elif provider == "zai":
+        from skaro_core.llm.zai_adapter import ZaiAdapter
+        return ZaiAdapter(config)
+    elif provider == "google":
+        from skaro_core.llm.google_adapter import GoogleAdapter
+        return GoogleAdapter(config)
     elif provider == "ollama":
         from skaro_core.llm.ollama_adapter import OllamaAdapter
         return OllamaAdapter(config)

@@ -18,6 +18,29 @@
 
 	let needsKey = $derived(presets[provider]?.needs_key !== false);
 	let masked = $state(true);
+
+	const OTHER = '__other__';
+	let models = $derived(modelsFor(provider));
+	let customMode = $state(false);
+	let showCustom = $derived(customMode || (model && !models.includes(model)));
+	let selectValue = $derived(showCustom ? OTHER : model);
+
+	function onSelectModel(e) {
+		const v = e.target.value;
+		if (v === OTHER) {
+			customMode = true;
+			model = '';
+		} else {
+			customMode = false;
+			model = v;
+		}
+	}
+
+	// Reset custom mode when provider changes
+	$effect(() => {
+		provider;
+		customMode = false;
+	});
 </script>
 
 <div class="card">
@@ -31,9 +54,19 @@
 		</div>
 		<div class="form-field">
 			<label for="llm-model">{$t('settings.model')}</label>
-			<select id="llm-model" bind:value={model}>
-				{#each modelsFor(provider) as m}<option value={m}>{m}</option>{/each}
+			<select id="llm-model" value={selectValue} onchange={onSelectModel}>
+				{#each models as m}<option value={m}>{m}</option>{/each}
+				<option value={OTHER}>Other…</option>
 			</select>
+			{#if showCustom}
+				<input
+					id="llm-model-custom"
+					type="text"
+					bind:value={model}
+					placeholder="model-name"
+					class="custom-model-input"
+				/>
+			{/if}
 		</div>
 	</div>
 
@@ -142,6 +175,10 @@
 	.form-field select:focus {
 		outline: none;
 		border-color: var(--ac);
+	}
+
+	.custom-model-input {
+		margin-top: 0.375rem;
 	}
 
 	.form-field input:disabled {

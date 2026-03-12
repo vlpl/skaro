@@ -1,5 +1,5 @@
 <script>
-	import { PROVIDER_LABELS } from '$lib/ui/icons/providers.js';
+	import { providerLabels } from '$lib/ui/icons/providers.js';
 	import { ChevronDown } from 'lucide-svelte';
 
 	let {
@@ -42,7 +42,7 @@
 <div class="provider-select" bind:this={root} onkeydown={onKeydown}>
 	<button type="button" class="trigger" {id} onclick={() => open = !open}>
 		<img class="icon" src="/icons/providers/{value}.svg" alt="" />
-		<span class="label">{PROVIDER_LABELS[value] || value}</span>
+		<span class="label">{$providerLabels[value] || value}</span>
 		<ChevronDown size={14} />
 	</button>
 
@@ -56,7 +56,7 @@
 					onclick={() => select(p)}
 				>
 					<img class="icon" src="/icons/providers/{p}.svg" alt="" />
-					<span>{PROVIDER_LABELS[p] || p}</span>
+					<span>{$providerLabels[p] || p}</span>
 				</button>
 			{/each}
 		</div>

@@ -20,6 +20,7 @@ from skaro_core.config import (
     save_secret,
 )
 from skaro_core.llm.base import PROVIDER_PRESETS
+from skaro_core.providers import get_model_ids, get_provider_keys, get_providers
 from skaro_web.api.deps import broadcast, get_project_root
 from skaro_web.api.schemas import ConfigUpdateBody
 
@@ -64,10 +65,18 @@ def _config_to_frontend(config: SkaroConfig) -> dict:
 async def get_config(project_root: Path = Depends(get_project_root)):
     config = load_config(project_root)
     data = _config_to_frontend(config)
+    all_providers = get_providers()
     data["_provider_presets"] = {
-        k: {"model": v[0], "api_key_env": v[1], "needs_key": v[2]}
+        k: {
+            "name": all_providers[k].name if k in all_providers else k,
+            "model": v[0],
+            "api_key_env": v[1],
+            "needs_key": v[2],
+            "models": get_model_ids(k),
+        }
         for k, v in PROVIDER_PRESETS.items()
     }
+    data["_provider_keys"] = get_provider_keys()
     data["_role_phases"] = ROLE_PHASES
     return data
 
