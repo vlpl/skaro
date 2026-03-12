@@ -106,33 +106,33 @@
 	}
 
 	.turn-label {
-		font-size: 0.6875rem;
+		font-size: 0.75rem;
 		font-weight: 700;
 		text-transform: uppercase;
 		letter-spacing: .05em;
-		margin-bottom: 0.25rem;
+		margin-bottom: 1rem;
 		display: flex;
 		align-items: center;
 		gap: 0.25rem;
 	}
 
 	.turn-text {
-		font-size: 1.1rem;
-		line-height: 1.6rem;
+		font-size: 1rem;
+		line-height: 1.4rem;
 		color: var(--tx-bright);
 	}
 
+	.turn-text :global(ul) {
+	    margin-left: 2rem;
+	}
+
 	.turn-text :global(h2) {
-		font-size: 1.6rem;
+		font-size: 1.3rem;
 		margin-bottom: 1.2rem;
 	}
 
 	.turn-text :global(p) {
-		margin: 0.25rem 0;
-	}
-
-	.turn-text :global(code) {
-		font-size: 0.75rem;
+		margin: 1rem 0;
 	}
 
 	.turn-text :global(pre) {
@@ -167,13 +167,11 @@
 	}
 
 	.user-overlay:not(.user-overlay-hidden) {
-		background: linear-gradient(to top, rgba(from var(--bg2) r g b / 0.8) 0%, var(--bg2) 80%, transparent 100%);
-		-webkit-backdrop-filter: blur(2px);
+		background: var(--bg2);
 		position: absolute;
 		bottom: 0;
 		left: 0;
-		padding: 1.5rem 1rem;
-		border-radius: var(--r);
+		padding: .5rem 0rem;
 	}
 
 	.user-overlay-hidden {
@@ -193,7 +191,7 @@
 	}
 
 	.expand-btn:hover {
-		color: var(--ac);
+		color: var(--tx-bright);
 	}
 
 	/* ── File List ── */

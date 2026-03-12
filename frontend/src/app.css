@@ -19,12 +19,12 @@
 	--ac2: #4b6eaf;
 	--ac-dim: #375a7f;
 	--gn: #6a8759;
-	--gn-bright: #a5c261;
+	--gn-bright: #19c884;
 	--yl: #ffc66d;
 	--yl-dim: #bbb529;
 	--rd: #f44747;
 	--rd-dim: #bc3f3c;
-	--or: #cc7832;
+	--or: #d05e52;
 	--purple: #9876aa;
 	--r: .6rem;
 	--r2: .4rem;
@@ -111,10 +111,10 @@ h3 {
 code {
 	font-family: var(--font-ui);
 	background: var(--bg2);
-	padding: 0.0625rem 0.3125rem;
-	border-radius: 0.125rem;
+	padding: 0.15rem 0.3rem;
+	border-radius: 0.25rem;
 	color: var(--or);
-	font-size: 0.8125rem;
+	font-size: 0.9rem;
 }
 
 select {
@@ -243,7 +243,7 @@ select {
 	padding: 0.5rem 0.75rem;
 	border-radius: var(--r);
 	margin-bottom: 0.75rem;
-	font-size: 0.8125rem;
+	font-size: 0.9rem;
 	line-height: 1.5;
 }
 
@@ -260,8 +260,8 @@ select {
 }
 
 .alert-success {
-	background: rgba(106, 135, 89, 0.1);
-	border: 0.0625rem solid rgba(106, 135, 89, 0.3);
+	background: #19c8841a;
+	border: 0.0625rem solid #19c8844d;
 	color: var(--gn-bright);
 }
 

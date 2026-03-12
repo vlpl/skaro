@@ -18,10 +18,14 @@
 	let inputFocused = $state(false);
 	let textareaEl = $state(null);
 
-	function autoResize(e) {
-		const el = e.target;
+	function fitHeight(el) {
 		el.style.height = 'auto';
-		el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+		const maxH = parseFloat(getComputedStyle(el).maxHeight) || Infinity;
+		el.style.height = Math.min(el.scrollHeight, maxH) + 'px';
+	}
+
+	function autoResize(e) {
+		fitHeight(e.target);
 	}
 
 	function resetHeight() {
@@ -43,8 +47,7 @@
 					// Wait for Svelte to update the DOM, then restore cursor
 					requestAnimationFrame(() => {
 						el.selectionStart = el.selectionEnd = start + 1;
-						el.style.height = 'auto';
-						el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+						fitHeight(el);
 					});
 				}
 				return;
@@ -141,7 +144,7 @@
 		padding: 1rem 1.3rem .3rem;
 		resize: none;
 		min-height: 5rem;
-		max-height: 20rem;
+		max-height: 50vh;
 		line-height: 1.5;
 	}
 

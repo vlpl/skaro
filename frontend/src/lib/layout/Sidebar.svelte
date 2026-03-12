@@ -321,7 +321,7 @@
 
 	.badge.ok {
 		color: var(--gn-bright);
-		background: rgba(106, 135, 89, .15);
+		background:  #1aa5c261;
 	}
 
 	.badge.warn {
