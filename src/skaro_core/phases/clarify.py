@@ -25,7 +25,7 @@ import re
 from typing import Any, AsyncIterator
 
 from skaro_core.llm.base import LLMMessage
-from skaro_core.phases.base import BasePhase, PhaseResult
+from skaro_core.phases.base import BasePhase, PhaseResult, strip_outer_md_fence
 
 CLARIFY_FILENAME = "clarifications.md"
 
@@ -157,16 +157,8 @@ class ClarifyPhase(BasePhase):
             task, CLARIFY_FILENAME, qa_content
         )
 
-        # Save updated spec
-        updated_spec = response_content
-        if "```markdown" in updated_spec:
-            start = updated_spec.index("```markdown") + len("```markdown")
-            end = updated_spec.rindex("```")
-            updated_spec = updated_spec[start:end].strip()
-        elif "```md" in updated_spec:
-            start = updated_spec.index("```md") + len("```md")
-            end = updated_spec.rindex("```")
-            updated_spec = updated_spec[start:end].strip()
+        # Save updated spec — strip outer markdown fence if LLM wrapped the response
+        updated_spec = strip_outer_md_fence(response_content)
 
         spec_path = self.artifacts.find_and_write_task_file(task, "spec.md", updated_spec)
 

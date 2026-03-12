@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import platform
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -50,6 +51,53 @@ def _has_inner_close_ahead(lines: list[str], start: int) -> bool:
             else:
                 return True  # matching close for the bare inner block
     return False
+
+
+# ── Regex for markdown outer‐fence detection ──────────────────
+_OUTER_FENCE_OPEN_RE = re.compile(r"^```(?:markdown|md)?\s*$")
+
+
+def strip_outer_md_fence(text: str) -> str:
+    """Remove an outer markdown fence that LLMs sometimes wrap around MD output.
+
+    Only strips when the **very first** non-blank line is an opening fence
+    (````` ``, ````markdown``, or ````md``) **and** the **very last**
+    non-blank line is a bare closing ````` ``.  This guarantees that inner
+    code blocks (including bare ````` `` fences) are never touched.
+    """
+    text = text.strip()
+    if not text:
+        return text
+
+    lines = text.splitlines()
+
+    # First non-blank line must be the opening fence
+    first_idx: int | None = None
+    for i, line in enumerate(lines):
+        if line.strip():
+            first_idx = i
+            break
+
+    if first_idx is None:
+        return text
+
+    if not _OUTER_FENCE_OPEN_RE.match(lines[first_idx].strip()):
+        return text  # not wrapped
+
+    # Last non-blank line must be the closing fence
+    last_idx: int | None = None
+    for i in range(len(lines) - 1, first_idx, -1):
+        if lines[i].strip():
+            last_idx = i
+            break
+
+    if last_idx is None or last_idx <= first_idx:
+        return text
+
+    if lines[last_idx].strip() != "```":
+        return text  # no closing fence
+
+    return "\n".join(lines[first_idx + 1 : last_idx]).strip()
 
 
 class _TrackingLLMAdapter(BaseLLMAdapter):

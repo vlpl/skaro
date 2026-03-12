@@ -9,7 +9,7 @@ from typing import Any
 import yaml
 
 from skaro_core.phases._plan_utils import count_plan_stages
-from skaro_core.phases.base import BasePhase, PhaseResult
+from skaro_core.phases.base import BasePhase, PhaseResult, strip_outer_md_fence
 
 
 class PlanPhase(BasePhase):
@@ -102,9 +102,9 @@ class PlanPhase(BasePhase):
             plan_content = content
             tasks_content = ""
 
-        # Remove code fences if present
-        plan_content = self._strip_fences(plan_content)
-        tasks_content = self._strip_fences(tasks_content)
+        # Remove outer code fences if LLM wrapped the response
+        plan_content = strip_outer_md_fence(plan_content)
+        tasks_content = strip_outer_md_fence(tasks_content)
 
         # Save
         created = []
@@ -199,31 +199,8 @@ class PlanPhase(BasePhase):
 
     @staticmethod
     def _strip_fences(text: str) -> str:
-        text = text.strip()
-        lines = text.splitlines()
-
-        # Find first opening fence (```markdown, ```md, or bare ```)
-        open_idx = None
-        for i, line in enumerate(lines):
-            stripped = line.strip()
-            if re.match(r"^```(?:markdown|md)?\s*$", stripped):
-                open_idx = i
-                break
-
-        if open_idx is None:
-            return text
-
-        # Find last closing fence (bare ``` at end of text)
-        close_idx = None
-        for i in range(len(lines) - 1, open_idx, -1):
-            if lines[i].strip() == "```":
-                close_idx = i
-                break
-
-        if close_idx is None or close_idx <= open_idx:
-            return text
-
-        return "\n".join(lines[open_idx + 1 : close_idx]).strip()
+        """Deprecated: use :func:`strip_outer_md_fence` directly."""
+        return strip_outer_md_fence(text)
 
 
 def _try_yaml_parse(section: str) -> list[dict[str, str]]:

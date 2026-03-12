@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from skaro_core.phases.base import BasePhase
+from skaro_core.phases.base import BasePhase, strip_outer_md_fence
 from skaro_core.phases.plan import PlanPhase
 from skaro_core.phases._clarify_parser import parse_raw_questions
 
@@ -130,6 +130,82 @@ class TestStripFences:
 
     def test_empty_string(self):
         assert PlanPhase._strip_fences("") == ""
+
+
+# ═══════════════════════════════════════════════════
+# strip_outer_md_fence (shared utility)
+# ═══════════════════════════════════════════════════
+
+class TestStripOuterMdFence:
+    """Tests for the fixed outer-fence stripping logic."""
+
+    def test_no_wrapper_with_inner_bare_blocks_preserved(self):
+        """Inner bare ``` code blocks must NOT be treated as outer wrapper."""
+        text = (
+            "# Plan\n\n"
+            "## Stage 1\n\n"
+            "Example:\n\n"
+            "```\nhello world\n```\n\n"
+            "## Stage 2\nMore text"
+        )
+        assert strip_outer_md_fence(text) == text
+
+    def test_no_wrapper_multiple_bare_blocks_preserved(self):
+        text = (
+            "# Plan\n\n"
+            "```\ncode block 1\n```\n\n"
+            "Some text\n\n"
+            "```\ncode block 2\n```"
+        )
+        assert strip_outer_md_fence(text) == text
+
+    def test_wrapped_md_preserves_inner_labeled_blocks(self):
+        text = (
+            "```markdown\n"
+            "# Plan\n\n"
+            "```python\ndef hello():\n    pass\n```\n\n"
+            "More text\n"
+            "```"
+        )
+        result = strip_outer_md_fence(text)
+        assert "# Plan" in result
+        assert "```python" in result
+        assert "def hello():" in result
+
+    def test_wrapped_md_preserves_inner_bare_blocks(self):
+        text = (
+            "```markdown\n"
+            "# Plan\n\n"
+            "```\nsome code\n```\n\n"
+            "More text\n"
+            "```"
+        )
+        result = strip_outer_md_fence(text)
+        assert "# Plan" in result
+        assert "some code" in result
+        assert result.count("```") == 2  # only inner pair
+
+    def test_text_after_closing_fence_prevents_stripping(self):
+        """If there's non-blank text after the last ```, it's not a wrapper."""
+        text = "```markdown\n# Plan\n```\n\nAdditional notes here"
+        assert strip_outer_md_fence(text) == text
+
+    def test_strips_bare_wrapper(self):
+        text = "```\n# Content\n```"
+        assert strip_outer_md_fence(text) == "# Content"
+
+    def test_strips_md_wrapper(self):
+        text = "```md\n# Content\n```"
+        assert strip_outer_md_fence(text) == "# Content"
+
+    def test_strips_markdown_wrapper(self):
+        text = "```markdown\n# Content\n```"
+        assert strip_outer_md_fence(text) == "# Content"
+
+    def test_no_false_positive_on_language_fence(self):
+        """```python at start should not be treated as outer MD wrapper."""
+        text = "```python\nprint('hi')\n```"
+        assert strip_outer_md_fence(text) == text
 
 
 # ═══════════════════════════════════════════════════
