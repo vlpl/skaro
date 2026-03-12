@@ -404,7 +404,7 @@
 <style>
 	/* ── Branch bar ── */
 	.branch-bar {
-		background: var(--sf);
+		background: var(--bd);
 		border-radius: var(--r);
 		padding: 0.625rem 0.75rem;
 		margin-bottom: 1rem;
@@ -483,8 +483,7 @@
 	}
 
 	.file-list {
-		background: var(--sf);
-		border: 0.0625rem solid var(--bd);
+		background: var(--bd);
 		border-radius: var(--r);
 		overflow: hidden;
 	}
@@ -581,9 +580,6 @@
 		gap: 0.5rem;
 		margin-top: 0.5rem;
 		padding: 0.5rem;
-		background: var(--sf);
-		border: 0.0625rem solid var(--bd);
-		border-radius: var(--r);
 	}
 
 	/* ── Commit box ── */
