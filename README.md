@@ -1,6 +1,6 @@
 <div align="center">
 
-# Skaro — AI-powered Software Development orchestration platform
+# Skaro — AI-powered Software Development tool
 
 <br />
 
@@ -17,9 +17,9 @@
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/skaro?style=for-the-badge)
 ![GitHub License](https://img.shields.io/github/license/skarodev/skaro?style=for-the-badge)
 
-<br />
+![Иллюстрация к проекту](https://raw.githubusercontent.com/skarodev/skaro/refs/heads/main/assets/screen.png)
 
-[Documentation](https://docs.skaro.dev) · [PyPI](https://pypi.org/project/skaro/) · [Telegram](https://t.me/skarodev) · [Discord](https://discord.gg/zUv6AHuJwD)
+[Website](https://skaro.dev) · [Documentation](https://docs.skaro.dev) · [PyPI](https://pypi.org/project/skaro/) · [Telegram](https://t.me/skarodev) · [Discord](https://discord.gg/zUv6AHuJwD)
 
 </div>
 
