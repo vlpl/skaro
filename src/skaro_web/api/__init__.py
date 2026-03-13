@@ -9,6 +9,7 @@ from skaro_web.api.files import router as files_router
 from skaro_web.api.git import router as git_router
 from skaro_web.api.import_project import router as import_router
 from skaro_web.api.review import router as review_router
+from skaro_web.api.skills import router as skills_router
 from skaro_web.api.status import router as status_router
 from skaro_web.api.tasks import router as tasks_router
 
@@ -24,6 +25,7 @@ all_routers = [
     git_router,
     autopilot_router,
     files_router,
+    skills_router,
 ]
 
 __all__ = ["all_routers"]

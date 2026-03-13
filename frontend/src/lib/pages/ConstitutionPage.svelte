@@ -16,6 +16,7 @@
 	let error = $state('');
 	let showEditor = $state(false);
 	let editorContent = $state('');
+	let selectedPresetId = $state(/** @type {string|null} */ (null));
 
 	onMount(() => { load(); });
 
@@ -40,7 +41,8 @@
 
 	async function saveContent(text) {
 		try {
-			await api.saveConstitution(text);
+			await api.saveConstitution(text, selectedPresetId);
+			selectedPresetId = null;
 			validation = null;
 			invalidate('constitution', 'status');
 			status.set(await api.getStatus());
@@ -50,12 +52,14 @@
 		} catch (e) { addError(e.message, 'constitutionSave'); throw e; }
 	}
 
-	function openPreset(content) {
+	function openPreset(content, presetId) {
+		selectedPresetId = presetId;
 		editorContent = content;
 		showEditor = true;
 	}
 
 	function openEditor() {
+		selectedPresetId = null;
 		editorContent = data?.content || '';
 		showEditor = true;
 	}

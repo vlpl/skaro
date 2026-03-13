@@ -914,6 +914,169 @@ def update(force: bool) -> None:
     )
 
 
+# ── skaro skills ──────────────────────────────────
+
+
+@cli.group()
+def skills() -> None:
+    """Manage project skills (LLM instruction packs)."""
+
+
+@skills.command("list")
+def skills_list() -> None:
+    """List all available skills and their status."""
+    _ensure_initialized()
+    config = load_config()
+
+    from skaro_core.skills import list_all_with_status
+
+    items = list_all_with_status(config.skills, project_root=None)
+
+    if not items:
+        console.print("  [dim]No skills available.[/dim]")
+        if not config.skills.preset:
+            console.print(
+                "  [dim]Hint: apply a constitution preset to get built-in skills.[/dim]"
+            )
+        return
+
+    table = Table(show_header=True, header_style="bold", box=None, padding=(0, 2))
+    table.add_column("Skill", style="cyan")
+    table.add_column("Source")
+    table.add_column("Status")
+    table.add_column("Phases", style="dim")
+
+    status_styles = {
+        "active": "[green]active[/green]",
+        "disabled": "[yellow]disabled[/yellow]",
+        "available": "[dim]available[/dim]",
+        "missing": "[red]missing[/red]",
+    }
+
+    for item in items:
+        table.add_row(
+            item["name"],
+            item["source"],
+            status_styles.get(item["status"], item["status"]),
+            ", ".join(item["phases"]) if item["phases"] else "all",
+        )
+
+    if config.skills.preset:
+        console.print(f"\n  Preset: [cyan]{config.skills.preset}[/cyan]\n")
+    console.print(table)
+    console.print()
+
+
+@skills.command("info")
+@click.argument("skill_name")
+def skills_info(skill_name: str) -> None:
+    """Show details of a specific skill."""
+    _ensure_initialized()
+    config = load_config()
+
+    from skaro_core.skills.loader import discover_all_skills
+
+    all_skills = discover_all_skills(config.skills, project_root=None)
+    skill = all_skills.get(skill_name)
+    if not skill:
+        console.print(f"  [red]✗[/red] Skill '{skill_name}' not found.")
+        raise SystemExit(1)
+
+    console.print(f"\n  [bold cyan]{skill.name}[/bold cyan]")
+    if skill.description:
+        console.print(f"  {skill.description}")
+    console.print(f"  Source: {skill.source}")
+    if skill.phases:
+        console.print(f"  Phases: {', '.join(skill.phases)}")
+    if skill.roles:
+        console.print(f"  Roles: {', '.join(skill.roles)}")
+    console.print()
+    if skill.instructions:
+        console.print(Panel(skill.instructions.strip(), border_style="dim", padding=(1, 2)))
+
+
+@skills.command("enable")
+@click.argument("skill_name")
+def skills_enable(skill_name: str) -> None:
+    """Activate a skill."""
+    _ensure_initialized()
+    config = load_config()
+
+    # Remove from disabled if present
+    if skill_name in config.skills.disabled:
+        config.skills.disabled.remove(skill_name)
+
+    # Add to active if not a preset skill (preset skills are active by default)
+    from skaro_core.skills.loader import discover_all_skills
+
+    all_skills = discover_all_skills(config.skills, project_root=None)
+    skill = all_skills.get(skill_name)
+
+    if skill and skill.source == "preset":
+        # Preset skill — just removing from disabled is enough
+        pass
+    elif skill_name not in config.skills.active:
+        config.skills.active.append(skill_name)
+
+    save_config(config)
+    console.print(f"  [green]✓[/green] Skill '{skill_name}' enabled.")
+
+
+@skills.command("disable")
+@click.argument("skill_name")
+def skills_disable(skill_name: str) -> None:
+    """Deactivate a skill."""
+    _ensure_initialized()
+    config = load_config()
+
+    # Remove from active if present
+    if skill_name in config.skills.active:
+        config.skills.active.remove(skill_name)
+
+    # Add to disabled
+    if skill_name not in config.skills.disabled:
+        config.skills.disabled.append(skill_name)
+
+    save_config(config)
+    console.print(f"  [yellow]✓[/yellow] Skill '{skill_name}' disabled.")
+
+
+@skills.command("create")
+@click.argument("skill_name")
+def skills_create(skill_name: str) -> None:
+    """Create a new user skill from template in .skaro/skills/."""
+    am = _ensure_initialized()
+    skills_dir = am.skaro / "skills"
+    skills_dir.mkdir(parents=True, exist_ok=True)
+
+    target = skills_dir / f"{skill_name}.yaml"
+    if target.exists():
+        console.print(f"  [yellow]⚠[/yellow] Skill '{skill_name}' already exists: {target}")
+        raise SystemExit(1)
+
+    template = (
+        f"name: {skill_name}\n"
+        f'description: ""\n'
+        f'version: "1.0"\n'
+        f"\n"
+        f"# Uncomment to limit to specific phases/roles:\n"
+        f"# phases:\n"
+        f"#   - implement\n"
+        f"#   - plan\n"
+        f"#   - tests\n"
+        f"# roles:\n"
+        f"#   - coder\n"
+        f"#   - reviewer\n"
+        f"\n"
+        f"instructions: |\n"
+        f"  ## {skill_name}\n"
+        f"  Add your instructions here.\n"
+    )
+    target.write_text(template, encoding="utf-8")
+    console.print(f"  [green]✓[/green] Created: {target}")
+    console.print(f"  [dim]Enable with: skaro skills enable {skill_name}[/dim]")
+
+
 # ── Entrypoint ──────────────────────────────────
 
 

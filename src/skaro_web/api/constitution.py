@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from skaro_core.artifacts import ArtifactManager, TEMPLATES_PKG_DIR
-from skaro_web.api.deps import broadcast, get_am
-from skaro_web.api.schemas import ContentBody
+from skaro_core.config import load_config, save_config
+from skaro_web.api.deps import broadcast, get_am, get_project_root
+from skaro_web.api.schemas import ContentBody, ConstitutionSaveBody
 
 router = APIRouter(prefix="/api/constitution", tags=["constitution"])
 
@@ -51,11 +54,21 @@ async def validate_constitution(am: ArtifactManager = Depends(get_am)):
 @router.put("")
 async def save_constitution(
     request: Request,
-    payload: ContentBody,
+    payload: ConstitutionSaveBody,
     am: ArtifactManager = Depends(get_am),
+    project_root: Path = Depends(get_project_root),
 ):
     am.write_constitution(payload.content)
     am.generate_project_gitignore(payload.content)
+
+    # Link skills preset when a preset_id is provided
+    if payload.preset_id is not None:
+        config = load_config(project_root)
+        config.skills.preset = payload.preset_id
+        # Reset disabled list when switching presets
+        config.skills.disabled = []
+        save_config(config, project_root)
+
     await broadcast(request, {"event": "artifact:updated", "artifact": "constitution"})
     return {"success": True}
 

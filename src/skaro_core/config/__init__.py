@@ -16,6 +16,7 @@ from skaro_core.config._models import (
     LLMConfig,
     RoleConfig,
     SkaroConfig,
+    SkillsConfig,
     UIConfig,
 )
 from skaro_core.config._secrets import load_secrets, save_secret
@@ -34,6 +35,7 @@ __all__ = [
     "LLMConfig",
     "RoleConfig",
     "SkaroConfig",
+    "SkillsConfig",
     "UIConfig",
     # Config I/O
     "find_project_root",

@@ -108,6 +108,33 @@ class ImportConfig:
 
 
 @dataclass
+class SkillsConfig:
+    """Skills section of SkaroConfig."""
+
+    preset: str = ""
+    active: list[str] = field(default_factory=list)
+    disabled: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        d: dict = {}
+        if self.preset:
+            d["preset"] = self.preset
+        if self.active:
+            d["active"] = self.active
+        if self.disabled:
+            d["disabled"] = self.disabled
+        return d
+
+    @classmethod
+    def from_dict(cls, data: dict) -> SkillsConfig:
+        return cls(
+            preset=data.get("preset", ""),
+            active=data.get("active") or [],
+            disabled=data.get("disabled") or [],
+        )
+
+
+@dataclass
 class SkaroConfig:
     llm: LLMConfig = field(default_factory=LLMConfig)
     ui: UIConfig = field(default_factory=UIConfig)
@@ -124,6 +151,7 @@ class SkaroConfig:
         }
     )
     verify_commands: list[VerifyCommand] = field(default_factory=list)
+    skills: SkillsConfig = field(default_factory=SkillsConfig)
 
     def llm_for_role(self, role: str | None) -> LLMConfig:
         """Return LLM config for a specific role, falling back to default."""
@@ -202,6 +230,10 @@ class SkaroConfig:
                 for vc in self.verify_commands
             ]
 
+        skills_dict = self.skills.to_dict()
+        if skills_dict:
+            d["skills"] = skills_dict
+
         return d
 
     @classmethod
@@ -261,4 +293,5 @@ class SkaroConfig:
             project_description=data.get("project_description", ""),
             roles=roles,
             verify_commands=verify_commands,
+            skills=SkillsConfig.from_dict(data.get("skills") or {}),
         )

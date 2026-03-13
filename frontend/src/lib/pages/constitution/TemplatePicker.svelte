@@ -4,7 +4,7 @@
 	import { addError } from '$lib/stores/logStore.js';
 	import { Loader2 } from 'lucide-svelte';
 
-	/** @type {{ onSelect: (content: string) => void }} */
+	/** @type {{ onSelect: (content: string, presetId: string) => void }} */
 	let { onSelect } = $props();
 
 	let presets = $state(/** @type {any[]} */ ([]));
@@ -25,7 +25,7 @@
 		loadingId = id;
 		try {
 			const res = await api.getConstitutionPreset(id);
-			onSelect(res.content);
+			onSelect(res.content, id);
 		} catch (e) { addError(e.message, 'presetLoad'); }
 		loadingId = null;
 	}

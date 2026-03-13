@@ -10,6 +10,7 @@
 	import RoleCard from '$lib/pages/settings/RoleCard.svelte';
 	import LanguagePicker from '$lib/pages/settings/LanguagePicker.svelte';
 	import ThemePicker from '$lib/pages/settings/ThemePicker.svelte';
+	import SkillsPanel from '$lib/pages/settings/SkillsPanel.svelte';
 	import { setTheme } from '$lib/stores/themeStore.js';
 	import { setProviderLabelsFromPresets } from '$lib/ui/icons/providers.js';
 
@@ -30,6 +31,7 @@
 		{ id: 'general', label: $t('settings.tab_general') },
 		{ id: 'llm', label: $t('settings.tab_llm') },
 		{ id: 'roles', label: $t('settings.tab_roles') },
+		{ id: 'skills', label: $t('settings.tab_skills') },
 	]);
 
 	let projectName = $state('');
@@ -215,9 +217,16 @@
 							{/each}
 						</div>
 					</div>
+				{:else if activeTab === 'skills'}
+					<div class="card">
+						<h3>{$t('settings.skills_title')}</h3>
+						<p class="card-desc">{$t('settings.skills_desc')}</p>
+						<SkillsPanel />
+					</div>
 				{/if}
 
-				<!-- Save (visible in all tabs) -->
+				<!-- Save (visible in all tabs except skills which manages its own state) -->
+				{#if activeTab !== 'skills'}
 				<div class="save-row">
 					<button class="btn btn-primary" onclick={save} disabled={saving}>
 						{#if saving}<Loader size={14} class="spin" /> {$t('settings.saving')}
@@ -226,6 +235,7 @@
 					{#if saved}<span class="save-ok">{$t('settings.saved')}</span>{/if}
 					{#if error}<span class="save-err">{$t('settings.error')}: {error}</span>{/if}
 				</div>
+				{/if}
 			</div>
 		</div>
 	{/if}

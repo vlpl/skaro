@@ -16,6 +16,12 @@ class ContentBody(BaseModel):
     content: str
 
 
+class ConstitutionSaveBody(BaseModel):
+    """Body for saving constitution, with optional preset linkage."""
+    content: str
+    preset_id: str | None = None
+
+
 class FileApplyBody(BaseModel):
     """Apply a generated file to disk."""
     filepath: str = Field(..., min_length=1)

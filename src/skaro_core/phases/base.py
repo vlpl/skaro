@@ -250,7 +250,7 @@ class BasePhase(ABC):
         )
 
     def _build_system_message(self) -> str:
-        """Build system message with language, constitution, and invariants."""
+        """Build system message with language, constitution, skills, and invariants."""
         parts = []
 
         # Language instruction — always first, unconditional
@@ -262,6 +262,11 @@ class BasePhase(ABC):
         constitution = self.artifacts.read_constitution()
         if constitution:
             parts.append(f"# PROJECT CONSTITUTION\n\n{constitution}")
+
+        # Skills — additional LLM instructions from active skill packs
+        skills_text = self._build_skills_section()
+        if skills_text:
+            parts.append(f"# SKILLS\n\n{skills_text}")
 
         invariants = self.artifacts.read_invariants()
         if invariants:
@@ -278,6 +283,28 @@ class BasePhase(ABC):
                 parts.append(f"# COMPLETED WORK (pre-existing)\n\n{content}")
 
         return "\n\n---\n\n".join(parts)
+
+    def _build_skills_section(self) -> str:
+        """Load and format active skills for the current phase and role."""
+        from skaro_core.skills import load_skills_for_phase
+
+        role = self.config.role_for_phase(self.phase_name)
+        skills = load_skills_for_phase(
+            config_skills=self.config.skills,
+            phase=self.phase_name,
+            role=role,
+            project_root=self.project_root,
+        )
+        if not skills:
+            return ""
+
+        parts = []
+        for skill in skills:
+            text = skill.get_instructions(self.phase_name)
+            if text.strip():
+                parts.append(f"## Skill: {skill.name}\n\n{text.strip()}")
+
+        return "\n\n".join(parts)
 
     def _build_messages(
         self,

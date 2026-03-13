@@ -132,8 +132,8 @@ export const api = {
 	generateAdrs: (signal) => post('/api/architecture/adrs/generate', {}, signal),
 	saveAdrContent: (/** @type {number} */ number, /** @type {string} */ content, signal) =>
 		put(`/api/architecture/adrs/${number}`, { content }, signal),
-	saveConstitution: (/** @type {string} */ content, signal) =>
-		put('/api/constitution', { content }, signal),
+	saveConstitution: (/** @type {string} */ content, /** @type {string|null} */ presetId, signal) =>
+		put('/api/constitution', { content, preset_id: presetId || null }, signal),
 	saveArchitecture: (/** @type {string} */ content, signal) =>
 		put('/api/architecture', { content }, signal),
 	applyArchReview: (signal) => post('/api/architecture/apply-review', {}, signal),
@@ -216,6 +216,13 @@ export const api = {
 	// Config
 	getConfig: (signal) => get('/api/config', signal),
 	saveConfig: (/** @type {any} */ payload, signal) => put('/api/config', payload, signal),
+
+	// Skills
+	getSkills: (signal) => get('/api/skills', signal),
+	getSkillsRegistry: (signal) => get('/api/skills/registry', signal),
+	getSkill: (/** @type {string} */ name, signal) => get(`/api/skills/${name}`, signal),
+	updateActiveSkills: (/** @type {string[]} */ active, /** @type {string[]} */ disabled, signal) =>
+		put('/api/skills/active', { active, disabled }, signal),
 
 	// Tokens & Stats
 	getTokens: (signal) => get('/api/tokens', signal),
