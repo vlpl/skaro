@@ -1,0 +1,8 @@
+# Supported funding platforms
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+
+# github: skarodev                    # GitHub Sponsors (раскомментировать когда станет доступно для РФ)
+# open_collective: skaro              # Open Collective (раскомментировать при подключении)
+
+custom:
+  - https://skaro.dev/donate
