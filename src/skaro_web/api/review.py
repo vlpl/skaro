@@ -105,6 +105,7 @@ async def get_project_fix_conversation(
 
     phase = ProjectFixPhase(project_root=project_root)
     conversation = phase.load_conversation()
+    conversation = phase.enrich_conversation(conversation)
 
     state = am.get_project_state()
     task_names = [ts.name for ts in state.tasks]

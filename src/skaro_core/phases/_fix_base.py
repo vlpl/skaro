@@ -158,6 +158,37 @@ class ConversationalFixBase(BasePhase):
 
         return response_content, proposed_files, file_diffs, updated_conversation
 
+    # ── Conversation enrichment ────────────────────────
+
+    def enrich_conversation(self, conversation: list[dict]) -> list[dict]:
+        """Re-parse file blocks from assistant messages and attach diffs.
+
+        When a conversation is loaded from JSON, the ``files`` field is not
+        persisted.  This method walks each assistant turn, extracts proposed
+        file blocks via :meth:`_parse_file_blocks`, computes diffs against
+        the current state on disk, and returns a new list with ``files``
+        and ``turnIndex`` attached to every assistant turn.
+        """
+        enriched: list[dict] = []
+        for i, turn in enumerate(conversation):
+            turn_copy = dict(turn)
+            if turn_copy.get("role") == "assistant":
+                content = turn_copy.get("content", "")
+                proposed = self._parse_file_blocks(content)
+                if proposed:
+                    file_diffs: dict[str, dict] = {}
+                    for fpath, new_content in proposed.items():
+                        old_content = self._read_project_file(fpath)
+                        file_diffs[fpath] = {
+                            "old": old_content,
+                            "new": new_content,
+                            "is_new": old_content is None,
+                        }
+                    turn_copy["files"] = file_diffs
+                turn_copy["turnIndex"] = i
+            enriched.append(turn_copy)
+        return enriched
+
     # ── File I/O helpers ──────────────────────────────
 
     def _read_project_file(self, filepath: str) -> str | None:

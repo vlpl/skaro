@@ -580,6 +580,7 @@ async def get_fix_conversation(
 
     phase = FixPhase(project_root=project_root)
     conversation = phase.load_conversation(name)
+    conversation = phase.enrich_conversation(conversation)
     ctx = await asyncio.to_thread(phase._gather_context, name)
     ctx_chars = sum(len(v) for v in ctx.values())
     conv_chars = sum(len(t.get("content", "")) for t in conversation)
