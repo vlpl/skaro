@@ -170,6 +170,13 @@ class FixBody(BaseModel):
     scope_paths: list[str] = Field(default_factory=list)
 
 
+class FixFromIssuesBody(BaseModel):
+    """Start a Fix session from selected test issues."""
+    issue_ids: list[str] = Field(default_factory=list)
+    conversation: list[dict[str, str]] = Field(default_factory=list)
+    scope_paths: list[str] = Field(default_factory=list)
+
+
 class ProjectFixBody(BaseModel):
     """Payload for project-level fix chat."""
     message: str = Field(..., min_length=1)

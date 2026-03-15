@@ -256,7 +256,6 @@ export default {
 	'tests.global_commands_title': 'Global commands',
 	'tests.all_passed': 'All checks passed',
 	'tests.has_failures': 'Some checks failed',
-	'tests.send_to_llm': 'Send errors to LLM',
 	'tests.rerun': 'Re-run tests',
 	'tests.confirm': 'Confirm & complete',
 	'tests.not_run_yet': 'Tests have not been run yet. Click "Run Tests" to start.',
@@ -269,6 +268,9 @@ export default {
 	'tests.commands_saved': 'Verify commands saved',
 	'tests.cmd_name_placeholder': 'Name',
 	'tests.cmd_command_placeholder': 'e.g. pytest tests/test_auth.py -v',
+	'tests.issues_title': 'Issues found',
+	'tests.select_all': 'Select all',
+	'tests.fix_issues': 'Fix {count} issue(s)',
 
 	// Tabs (file viewer)
 	'tab.specification': 'Specification',

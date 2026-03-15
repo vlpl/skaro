@@ -18,13 +18,22 @@ from skaro_core.phases.base import BasePhase, PhaseResult, SKIP_DIRS
 
 _OUTPUT_FORMAT = (
     "# OUTPUT FORMAT\n"
-    "First, explain the issue and your fix approach.\n"
-    "Then output EACH changed file using fenced code blocks:\n"
-    "```path/to/file.ext\n<full file content>\n```\n\n"
-    "IMPORTANT: Output the COMPLETE file content, not just the diff.\n"
-    "Include ALL changed files. Use relative paths from project root.\n"
-    "If you need to create a new file, use the same format.\n"
-    "If no code changes are needed, explain why."
+    "First, explain the root cause of the issue.\n\n"
+    "Then choose ONE of two paths:\n\n"
+    "**Path A — No code changes needed** (environment, config, or command issue):\n"
+    "Explain the root cause clearly and suggest what should be changed "
+    "(e.g. verify commands, environment setup, Docker config). "
+    "Do NOT output any source code files. Do NOT rewrite existing files "
+    "just to 'improve' them — that causes regressions.\n\n"
+    "**Path B — Code changes required** (actual bug in source code):\n"
+    "Output EACH changed file using fenced code blocks:\n"
+    "```path/to/file.ext\n<full file content>\n```\n"
+    "Output the COMPLETE file content, not just the diff. "
+    "Include ALL changed files. Use relative paths from project root.\n\n"
+    "CRITICAL: Only use Path B if the root cause is genuinely in the source code. "
+    "If tests fail because of wrong commands, missing dependencies, wrong environment, "
+    "or incorrect paths — that is Path A. Never rewrite source code to work around "
+    "an environment problem."
 )
 
 
@@ -63,9 +72,9 @@ class ConversationalFixBase(BasePhase):
             "\n\n# YOUR ROLE\n"
             f"{self._FIX_ROLE}\n"
             "You must:\n"
-            "1. Analyze the issue using the project context provided\n"
-            "2. Propose specific file changes to fix it\n"
-            "3. Explain what you changed and why\n\n"
+            "1. Analyze the issue and identify the ROOT CAUSE\n"
+            "2. Determine whether the fix is in code, environment, or configuration\n"
+            "3. Respond accordingly (see OUTPUT FORMAT)\n\n"
             f"{_OUTPUT_FORMAT}"
         )
 

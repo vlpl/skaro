@@ -24,3 +24,15 @@ export function buildErrorSummary(checklist = [], commands = []) {
 
 	return parts.join('\n\n---\n\n');
 }
+
+/**
+ * Format an issue for display in the issues list.
+ *
+ * @param {{ type: string, severity: string, title: string, detail: string, command?: string }} issue
+ * @returns {{ icon: string, label: string }}
+ */
+export function formatIssueLabel(issue) {
+	const icon = issue.type === 'command' ? '⚠' : '○';
+	const detail = issue.detail ? ` — ${issue.detail}` : '';
+	return { icon, label: `${issue.title}${detail}` };
+}

@@ -3,12 +3,12 @@
 	import { api } from '$lib/api/client.js';
 	import { addLog, addError } from '$lib/stores/logStore.js';
 	import {
-		Send, RotateCcw, Check, Loader2, Pencil, Plus, Trash2, Save,
+		RotateCcw, Check, Loader2, Pencil, Plus, Trash2, Save, Wrench,
 	} from 'lucide-svelte';
 	import CheckList from '$lib/ui/CheckList.svelte';
 	import CommandList from '$lib/ui/CommandList.svelte';
 	import TestsSummary from '$lib/ui/TestsSummary.svelte';
-	import { buildErrorSummary } from '$lib/ui/testUtils.js';
+	import { formatIssueLabel } from '$lib/ui/testUtils.js';
 
 	let {
 		taskName = '',
@@ -17,15 +17,65 @@
 		confirmed = false,
 		onRunTests = () => {},
 		onConfirm = () => {},
-		onSendToLlm = () => {},
+		onFixFromIssues = (issueIds) => {},
 	} = $props();
 
 	let editingTaskCmds = $state(false);
 	let editableCmds = $state([]);
 	let savingCmds = $state(false);
 
+	// ── Issues state ──
+	let issues = $state([]);
+	let issuesLoading = $state(false);
+	let selectedIssues = $state({});
+
 	let hasErrors = $derived(results && !results.passed);
 	let hasResults = $derived(results !== null);
+	let hasIssues = $derived(issues.length > 0);
+	let selectedCount = $derived(Object.values(selectedIssues).filter(Boolean).length);
+	let allSelected = $derived(hasIssues && selectedCount === issues.length);
+
+	// Load issues when results change and have errors
+	$effect(() => {
+		if (hasErrors && taskName) {
+			loadIssues();
+		} else {
+			issues = [];
+			selectedIssues = {};
+		}
+	});
+
+	async function loadIssues() {
+		issuesLoading = true;
+		try {
+			const data = await api.getTestIssues(taskName);
+			issues = data.issues || [];
+			// Select all by default
+			const sel = {};
+			for (const issue of issues) sel[issue.id] = true;
+			selectedIssues = sel;
+		} catch (e) {
+			addError(e.message, 'loadIssues');
+			issues = [];
+		}
+		issuesLoading = false;
+	}
+
+	function toggleIssue(id) {
+		selectedIssues = { ...selectedIssues, [id]: !selectedIssues[id] };
+	}
+
+	function toggleAll() {
+		const newVal = !allSelected;
+		const sel = {};
+		for (const issue of issues) sel[issue.id] = newVal;
+		selectedIssues = sel;
+	}
+
+	function handleFixIssues() {
+		const ids = issues.filter((i) => selectedIssues[i.id]).map((i) => i.id);
+		if (ids.length > 0) onFixFromIssues(ids);
+	}
 
 	// ── Inline editing ──
 
@@ -66,10 +116,6 @@
 	function cancelEditCmds() {
 		editingTaskCmds = false;
 		editableCmds = [];
-	}
-
-	function handleSendToLlm() {
-		onSendToLlm(buildErrorSummary(results?.checklist, results?.task_commands));
 	}
 </script>
 
@@ -134,10 +180,44 @@
 		<!-- Summary & Actions -->
 		<TestsSummary passed={results.passed} label={results.passed ? $t('tests.all_passed') : $t('tests.has_failures')} />
 
+		<!-- Issues list (when tests have failures) -->
+		{#if hasIssues}
+			<div class="tests-section issues-section">
+				<div class="section-header">
+					<h4 class="section-title">{$t('tests.issues_title')}</h4>
+					<span class="issues-count">{selectedCount}/{issues.length}</span>
+				</div>
+				<div class="issues-list">
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+					<div class="issue-row issue-select-all" onclick={toggleAll}>
+						<input type="checkbox" checked={allSelected} />
+						<span class="issue-label">{$t('tests.select_all')}</span>
+					</div>
+					{#each issues as issue (issue.id)}
+						{@const fmt = formatIssueLabel(issue)}
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+						<div
+							class="issue-row"
+							class:issue-error={issue.severity === 'error'}
+							class:issue-warning={issue.severity === 'warning'}
+							onclick={() => toggleIssue(issue.id)}
+						>
+							<input type="checkbox" checked={!!selectedIssues[issue.id]} />
+							<span class="issue-icon">{fmt.icon}</span>
+							<span class="issue-label">{fmt.label}</span>
+							{#if issue.command}
+								<code class="issue-cmd">{issue.command}</code>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			</div>
+		{/if}
+
 		<div class="tests-actions">
-			{#if hasErrors}
-				<button class="btn btn-primary" onclick={handleSendToLlm}>
-					<Send size={14} /> {$t('tests.send_to_llm')}
+			{#if hasIssues && selectedCount > 0}
+				<button class="btn btn-primary" onclick={handleFixIssues}>
+					<Wrench size={14} /> {$t('tests.fix_issues', { count: selectedCount })}
 				</button>
 			{/if}
 			<button class="btn" disabled={loading} onclick={onRunTests}>
@@ -209,4 +289,50 @@
 	.btn-success:hover { filter: brightness(1.1); }
 
 	.tests-empty { color: var(--dm); font-size: 0.875rem; }
+
+	/* ── Issues list ── */
+	.issues-section { margin-top: 0.5rem; }
+
+	.issues-count {
+		font-size: 0.6875rem; color: var(--dm); font-family: var(--font-ui);
+	}
+
+	.issues-list {
+		display: flex; flex-direction: column; gap: 0.125rem;
+		margin-top: 0.375rem;
+	}
+
+	.issue-row {
+		display: flex; align-items: center; gap: 0.5rem;
+		padding: 0.375rem 0.625rem;
+		background: var(--bg2); border-radius: var(--r2);
+		cursor: pointer; font-size: 0.8125rem; color: var(--tx);
+		transition: background .1s;
+	}
+
+	.issue-row:hover { background: var(--sf2); }
+
+	.issue-select-all {
+		font-weight: 600; font-size: 0.75rem;
+		text-transform: uppercase; letter-spacing: 0.03em;
+		color: var(--dm); padding: 0.25rem 0.625rem;
+	}
+
+	.issue-icon { flex-shrink: 0; width: 1rem; text-align: center; }
+	.issue-error .issue-icon { color: var(--rd); }
+	.issue-warning .issue-icon { color: var(--yl); }
+
+	.issue-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+	.issue-cmd {
+		font-size: 0.6875rem; font-family: var(--font-ui);
+		color: var(--dm); background: var(--bg);
+		padding: 0.0625rem 0.375rem; border-radius: 0.1875rem;
+		flex-shrink: 0; max-width: 16rem;
+		overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	}
+
+	.issue-row input[type="checkbox"] {
+		flex-shrink: 0; accent-color: var(--ac);
+	}
 </style>

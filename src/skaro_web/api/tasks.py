@@ -17,6 +17,7 @@ from skaro_web.api.schemas import (
     ContentBody,
     FileApplyBody,
     FixBody,
+    FixFromIssuesBody,
     ImplementBody,
     TaskCreateBody,
     TaskFileSaveBody,
@@ -394,6 +395,122 @@ async def complete_stage(
 
 
 # ── Fix ─────────────────────────────────────────
+
+@router.get("/{name}/tests/issues")
+async def get_test_issues(
+    name: str,
+    am: ArtifactManager = Depends(get_am),
+):
+    """Extract structured issues from the latest test results."""
+    from skaro_core.phases.tests import TestsPhase
+
+    raw = am.find_and_read_task_file(name, "tests.json")
+    if not raw:
+        return {"issues": [], "has_results": False}
+
+    import json
+    try:
+        results = json.loads(raw)
+    except json.JSONDecodeError:
+        return {"issues": [], "has_results": False}
+
+    issues = TestsPhase.extract_issues(results)
+    return {"issues": issues, "has_results": True}
+
+
+@router.post("/{name}/fix/from-issues")
+async def fix_from_issues(
+    name: str,
+    request: Request,
+    payload: FixFromIssuesBody,
+    project_root: Path = Depends(get_project_root),
+    am: ArtifactManager = Depends(get_am),
+    ws: ConnectionManager = Depends(get_ws_manager),
+):
+    """Start a Fix session from selected test issues.
+
+    Loads the latest test results, filters to selected issue IDs,
+    builds a structured prompt with environment context, auto-extracts
+    file paths from error output for scope, and sends through Fix flow.
+    """
+    from skaro_core.phases.fix import FixPhase
+    from skaro_core.phases.tests import TestsPhase
+    from skaro_core.phases.base import CancelledByClientError
+
+    # Load and parse test results
+    raw = am.find_and_read_task_file(name, "tests.json")
+    if not raw:
+        return {"success": False, "message": "No test results found. Run tests first."}
+
+    import json
+    try:
+        results = json.loads(raw)
+    except json.JSONDecodeError:
+        return {"success": False, "message": "Cannot parse tests.json."}
+
+    all_issues = TestsPhase.extract_issues(results)
+
+    # Filter to selected issues (or use all if none specified)
+    if payload.issue_ids:
+        selected_ids = set(payload.issue_ids)
+        selected = [i for i in all_issues if i["id"] in selected_ids]
+    else:
+        selected = all_issues
+
+    if not selected:
+        return {"success": False, "message": "No matching issues found."}
+
+    # Load verify commands for context
+    task_dir = am.find_task_dir(name)
+    verify_commands = TestsPhase.load_task_commands_static(task_dir)
+
+    # Detect environment hint from config / project structure
+    import platform
+    env_parts = [f"OS: {platform.system()} {platform.release()}"]
+    docker_compose = project_root / "docker-compose.yml"
+    dockerfile = project_root / "Dockerfile"
+    if docker_compose.exists() or dockerfile.exists():
+        env_parts.append("Docker project detected (Dockerfile/docker-compose.yml present)")
+    env_parts.append(f"Project root: {project_root}")
+    environment_hint = "; ".join(env_parts)
+
+    # Build prompt with full context
+    message = TestsPhase.build_fix_prompt(
+        selected,
+        verify_commands=verify_commands,
+        environment_hint=environment_hint,
+    )
+
+    # Auto-scope: extract file paths from error output
+    auto_paths = await asyncio.to_thread(
+        TestsPhase.extract_file_paths, selected, project_root,
+    )
+    # Merge with user-provided scope (user paths take priority)
+    all_scope = list(dict.fromkeys(list(payload.scope_paths) + auto_paths))
+
+    phase = FixPhase(project_root=project_root)
+    try:
+        async with llm_phase(ws, "fix", phase, request=request):
+            result = await phase.run(
+                task=name,
+                message=message,
+                conversation=payload.conversation,
+                scope_paths=all_scope,
+            )
+    except CancelledByClientError:
+        return {"success": False, "message": "Cancelled by user", "files": {}, "conversation": []}
+
+    if result.success:
+        await ws.broadcast({"event": "fix:response", "task": name})
+
+    return {
+        "success": result.success,
+        "message": result.message,
+        "files": result.data.get("files", {}),
+        "conversation": result.data.get("conversation", []),
+        "issues_count": len(selected),
+    }
+
 
 @router.post("/{name}/fix")
 async def run_fix(

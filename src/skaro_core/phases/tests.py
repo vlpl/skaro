@@ -134,6 +134,184 @@ class TestsPhase(CommandRunnerMixin, BasePhase):
             encoding="utf-8",
         )
 
+    # ── Issues extraction ─────────────────────────────
+
+    @staticmethod
+    def extract_issues(results: dict) -> list[dict]:
+        """Extract structured issues from tests results.
+
+        Returns a list of dicts, each with:
+            id, type ('check' | 'command'), severity ('error' | 'warning'),
+            title, detail, command (optional), output (optional).
+        """
+        issues: list[dict] = []
+        idx = 0
+
+        for check in results.get("checklist", []):
+            if not check.get("passed"):
+                idx += 1
+                issues.append({
+                    "id": f"chk-{idx}",
+                    "type": "check",
+                    "severity": "warning",
+                    "title": check.get("label", f"Check {idx}"),
+                    "detail": check.get("detail", ""),
+                })
+
+        for cmd in results.get("task_commands", []):
+            if not cmd.get("success"):
+                idx += 1
+                output = (cmd.get("stderr") or cmd.get("stdout") or "").strip()
+                if len(output) > 3000:
+                    output = output[-3000:]
+                issues.append({
+                    "id": f"cmd-{idx}",
+                    "type": "command",
+                    "severity": "error",
+                    "title": cmd.get("name", f"Command {idx}"),
+                    "detail": f"Exit code {cmd.get('exit_code', '?')}",
+                    "command": cmd.get("command", ""),
+                    "output": output,
+                })
+
+        return issues
+
+    @staticmethod
+    def build_fix_prompt(
+        issues: list[dict],
+        *,
+        verify_commands: list[dict[str, str]] | None = None,
+        environment_hint: str = "",
+    ) -> str:
+        """Build a structured fix prompt from selected issues.
+
+        The prompt gives LLM:
+        - HOW tests were run (verify commands)
+        - WHERE they were run (environment)
+        - WHAT failed (issues with full output)
+        - Clear guidance on diagnosis vs blind code changes.
+        """
+        parts: list[str] = []
+
+        # ── Environment & commands context ──
+        if verify_commands or environment_hint:
+            parts.append("## Test execution context\n")
+            if environment_hint:
+                parts.append(f"**Environment**: {environment_hint}\n")
+            if verify_commands:
+                parts.append("**Verify commands** (from verify.yaml):")
+                for vc in verify_commands:
+                    name = vc.get("name", "")
+                    cmd = vc.get("command", "")
+                    parts.append(f"- `{cmd}`" + (f"  ({name})" if name else ""))
+                parts.append("")
+
+        # ── Issues ──
+        parts.append("## Issues found during automated testing\n")
+
+        for i, issue in enumerate(issues, 1):
+            parts.append(f"### Issue {i}: {issue['title']}")
+            parts.append(f"- **Type**: {issue['type']}")
+            parts.append(f"- **Severity**: {issue['severity']}")
+            if issue.get("detail"):
+                parts.append(f"- **Detail**: {issue['detail']}")
+            if issue.get("command"):
+                parts.append(f"- **Command**: `{issue['command']}`")
+            if issue.get("output"):
+                parts.append(f"- **Output**:\n```\n{issue['output']}\n```")
+            parts.append("")
+
+        # ── Guidance ──
+        parts.append("## Instructions\n")
+        parts.append(
+            "CRITICAL: Diagnose the ROOT CAUSE before doing anything else.\n\n"
+            "Common root causes that do NOT require code changes:\n"
+            "- Wrong execution environment (commands run on host but project runs in Docker)\n"
+            "- Python/Node/etc not on PATH, virtual environment not activated\n"
+            "- Incorrect paths in verify commands (cd to wrong directory)\n"
+            "- Missing dependencies not installed\n"
+            "- Test configuration issues (wrong working directory, missing env vars)\n\n"
+            "If ANY of the above is the root cause:\n"
+            "→ Do NOT output any source code files\n"
+            "→ Do NOT rewrite, refactor, or 'improve' existing code\n"
+            "→ Explain the root cause and suggest how to fix the verify commands "
+            "or environment\n\n"
+            "Only output source code files if the root cause is a genuine bug "
+            "in the source code itself."
+        )
+        return "\n".join(parts)
+
+    @staticmethod
+    def extract_file_paths(issues: list[dict], project_root: Path) -> list[str]:
+        """Extract project file paths mentioned in issue outputs.
+
+        Scans tracebacks and error messages for file references that
+        exist in the project tree. Used for auto-scope in fix-from-issues.
+
+        Returns de-duplicated list of relative paths.
+        """
+        import os
+
+        text = ""
+        for issue in issues:
+            if issue.get("output"):
+                text += issue["output"] + "\n"
+            if issue.get("command"):
+                text += issue["command"] + "\n"
+            if issue.get("detail"):
+                text += issue["detail"] + "\n"
+
+        if not text:
+            return []
+
+        # Patterns that capture file paths:
+        candidates: set[str] = set()
+
+        # Python traceback: File "path"
+        for m in re.finditer(r'File "([^"]+)"', text):
+            candidates.add(m.group(1))
+
+        # path:line or path:line:col
+        for m in re.finditer(r'(\S+\.\w{1,5}):\d+', text):
+            candidates.add(m.group(1))
+
+        # Pytest FAILED marker
+        for m in re.finditer(r'FAILED\s+(\S+?)::', text):
+            candidates.add(m.group(1))
+
+        # Resolve to existing project files
+        found: list[str] = []
+        seen: set[str] = set()
+
+        for candidate in candidates:
+            # Normalize
+            candidate = candidate.replace("\\", "/")
+            # Strip leading ./ or /
+            candidate = candidate.lstrip("./")
+
+            # Try as-is relative to project root
+            full = project_root / candidate
+            if full.is_file():
+                rel = str(full.relative_to(project_root)).replace(os.sep, "/")
+                if rel not in seen:
+                    seen.add(rel)
+                    found.append(rel)
+                continue
+
+            # Try without common prefixes (e.g. /app/src/... → src/...)
+            parts = candidate.split("/")
+            for start in range(1, min(len(parts), 4)):
+                sub = "/".join(parts[start:])
+                full = project_root / sub
+                if full.is_file():
+                    rel = str(full.relative_to(project_root)).replace(os.sep, "/")
+                    if rel not in seen:
+                        seen.add(rel)
+                        found.append(rel)
+                    break
+
+        return sorted(found)
+
     # ── Structural checks ───────────────────────────
 
     def _run_structural_checks(self, task: str, plan: str) -> list[dict]:

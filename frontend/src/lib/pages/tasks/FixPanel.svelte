@@ -52,6 +52,10 @@
 		return api.clearFixConversation(task);
 	}
 
+	function fixFromIssuesFn(issueIds, conversation, signal, scopePaths) {
+		return api.fixFromIssues(task, issueIds, conversation, scopePaths, signal);
+	}
+
 	function onSendSuccess() {
 		addLog($t('log.fix_response', { name: task }));
 	}
@@ -60,10 +64,12 @@
 <FixChat
 	{modelDisplay}
 	prefillEvent="skaro:prefill-fix"
+	fixFromIssuesEvent="skaro:fix-from-issues"
 	errorSource="fix"
 	scopeEnabled={true}
 	{loadConversationFn}
 	{sendMessageFn}
+	{fixFromIssuesFn}
 	loadTreeFn={() => api.getFileTree()}
 	{applyFileFn}
 	{clearConversationFn}

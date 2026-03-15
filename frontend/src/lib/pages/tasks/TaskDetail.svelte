@@ -247,13 +247,13 @@
 		} catch (e) { addError(e.message, 'confirmTests'); }
 	}
 
-	function sendTestErrorsToLlm(errorSummary) {
+	async function fixFromIssues(issueIds) {
 		activeFileTab = 'chat';
-		setTimeout(() => {
-			window.dispatchEvent(new CustomEvent('skaro:prefill-fix', {
-				detail: { message: errorSummary },
-			}));
-		}, 100);
+		// Small delay to ensure FixChat is mounted
+		await new Promise((r) => setTimeout(r, 150));
+		window.dispatchEvent(new CustomEvent('skaro:fix-from-issues', {
+			detail: { taskName, issueIds },
+		}));
 	}
 
 	// ── Implement file apply ──
@@ -455,7 +455,7 @@
 				confirmed={testsConfirmed}
 				onRunTests={runTests}
 				onConfirm={confirmTests}
-				onSendToLlm={sendTestErrorsToLlm}
+				onFixFromIssues={fixFromIssues}
 			/>
 		{/snippet}
 	</FileTabs>

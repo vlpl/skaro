@@ -256,7 +256,6 @@ export default {
 	'tests.global_commands_title': 'Глобальные команды',
 	'tests.all_passed': 'Все проверки пройдены',
 	'tests.has_failures': 'Есть непройденные проверки',
-	'tests.send_to_llm': 'Отправить ошибки в LLM',
 	'tests.rerun': 'Перезапустить',
 	'tests.confirm': 'Подтвердить и завершить',
 	'tests.not_run_yet': 'Тесты ещё не запускались. Нажмите «Запустить тесты».',
@@ -269,6 +268,9 @@ export default {
 	'tests.commands_saved': 'Команды верификации сохранены',
 	'tests.cmd_name_placeholder': 'Название',
 	'tests.cmd_command_placeholder': 'напр. pytest tests/test_auth.py -v',
+	'tests.issues_title': 'Найденные проблемы',
+	'tests.select_all': 'Выбрать все',
+	'tests.fix_issues': 'Исправить ({count})',
 
 	// Tabs (file viewer)
 	'tab.specification': 'Спецификация',

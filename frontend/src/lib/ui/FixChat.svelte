@@ -27,10 +27,12 @@
 	let {
 		modelDisplay = '',
 		prefillEvent = '',
+		fixFromIssuesEvent = '',
 		placeholder = '',
 		scopeEnabled = false,
 		loadConversationFn,
 		sendMessageFn,
+		fixFromIssuesFn = null,
 		loadTreeFn = null,
 		applyFileFn,
 		clearConversationFn,
@@ -93,11 +95,55 @@
 		}
 	}
 
+	// Fix from issues — triggered by TestsPanel "Fix Issues" button
+	async function handleFixFromIssues(e) {
+		const { issueIds } = e.detail || {};
+		if (!issueIds?.length || !fixFromIssuesFn || loading) return;
+
+		loading = true;
+		const controller = new AbortController();
+		abortController = controller;
+
+		// Show a synthetic user message summarizing what's happening
+		const issueLabel = issueIds.length === 1 ? '1 issue' : `${issueIds.length} issues`;
+		conversation = [...conversation, {
+			role: 'user',
+			content: `Fix ${issueLabel} from test results`,
+		}];
+
+		try {
+			const history = conversation.slice(0, -1).map((turn) => ({
+				role: turn.role, content: turn.content,
+			}));
+			const result = await fixFromIssuesFn(issueIds, history, controller.signal, scopePaths);
+			if (result.success) {
+				conversation = [...conversation, {
+					role: 'assistant', content: result.message,
+					files: result.files || {}, turnIndex: conversation.length,
+				}];
+				onSendSuccess();
+			} else {
+				addError(result.message || 'Request failed', errorSource);
+			}
+		} catch (e) {
+			if (e.name === 'AbortError') {
+				conversation = conversation.slice(0, -1);
+				addLog('Cancelled');
+			} else {
+				addError(e.message, errorSource);
+			}
+		}
+		abortController = null;
+		loading = false;
+	}
+
 	onMount(() => {
 		if (prefillEvent) window.addEventListener(prefillEvent, handlePrefill);
+		if (fixFromIssuesEvent) window.addEventListener(fixFromIssuesEvent, handleFixFromIssues);
 	});
 	onDestroy(() => {
 		if (prefillEvent) window.removeEventListener(prefillEvent, handlePrefill);
+		if (fixFromIssuesEvent) window.removeEventListener(fixFromIssuesEvent, handleFixFromIssues);
 	});
 
 	async function loadConversation() {

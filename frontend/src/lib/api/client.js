@@ -189,10 +189,14 @@ export const api = {
 		get(`/api/tasks/${name}/tests/commands`, signal),
 	saveVerifyCommands: (/** @type {string} */ name, /** @type {any[]} */ commands, signal) =>
 		put(`/api/tasks/${name}/tests/commands`, { commands }, signal),
+	getTestIssues: (/** @type {string} */ name, signal) =>
+		get(`/api/tasks/${name}/tests/issues`, signal),
 
 	// Fix (conversational bug fixing)
 	sendFix: (/** @type {string} */ name, /** @type {string} */ message, /** @type {any[]} */ conversation, /** @type {string[]} */ scope_paths, signal) =>
 		post(`/api/tasks/${name}/fix`, { message, conversation, scope_paths: scope_paths || [] }, signal),
+	fixFromIssues: (/** @type {string} */ name, /** @type {string[]} */ issue_ids, /** @type {any[]} */ conversation, /** @type {string[]} */ scope_paths, signal) =>
+		post(`/api/tasks/${name}/fix/from-issues`, { issue_ids, conversation, scope_paths: scope_paths || [] }, signal),
 	applyFixFile: (/** @type {string} */ name, /** @type {string} */ filepath, /** @type {string} */ content, signal) =>
 		post(`/api/tasks/${name}/fix/apply`, { filepath, content }, signal),
 	getFixLog: (/** @type {string} */ name, signal) => get(`/api/tasks/${name}/fix/log`, signal),
