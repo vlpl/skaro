@@ -31,6 +31,7 @@
 		Clock, Zap, ChevronDown, ChevronUp, Cpu, StopCircle,
 		Eye, EyeOff,
 	} from 'lucide-svelte';
+	import KittIndicator from '$lib/ui/KittIndicator.svelte';
 
 	const PHASE_ICONS = { clarify: Search, plan: ClipboardList, implement: Hammer, tests: FlaskConical };
 	const PHASE_ORDER = ['clarify', 'plan', 'implement', 'tests'];
@@ -326,7 +327,7 @@
 						{/if}
 
 						<div class="mc-focus-spinner">
-							<Loader2 size={20} class="spin" />
+							<KittIndicator cells={16} speed={1100} />
 							<span>
 								{#if $autopilotCurrentPhase === 'clarify'}
 									{$t('autopilot.auto_clarifying')}
@@ -348,7 +349,7 @@
 						<div class="mc-thinking">
 							<button class="mc-thinking-header" onclick={() => thinkingExpanded = !thinkingExpanded}>
 								<span class="mc-thinking-title">
-									<Loader2 size={14} class="spin" />
+									<KittIndicator cells={10} speed={1000} />
 									{$t('autopilot.llm_thinking')}
 								</span>
 								{#if thinkingExpanded}
@@ -1169,12 +1170,35 @@
 	.mc-thinking-body pre {
 		font-family: var(--font-ui);
 		font-size: 0.75rem;
-		line-height: 1.5;
-		color: var(--tx);
+		line-height: 1.6;
+		color: #7ec8e3;
 		white-space: pre-wrap;
 		word-break: break-word;
 		margin: 0;
 		padding-top: 0.5rem;
+		text-shadow: 0 0 8px rgba(88, 157, 246, 0.25);
+		background:
+			repeating-linear-gradient(
+				0deg,
+				transparent,
+				transparent 1.2em,
+				rgba(88, 157, 246, 0.03) 1.2em,
+				rgba(88, 157, 246, 0.03) 2.4em
+			);
+		background-size: 100% 2.4em;
+	}
+
+	:global([data-theme="light"]) .mc-thinking-body pre {
+		color: #1a6e8e;
+		text-shadow: none;
+		background:
+			repeating-linear-gradient(
+				0deg,
+				transparent,
+				transparent 1.2em,
+				rgba(74, 120, 194, 0.06) 1.2em,
+				rgba(74, 120, 194, 0.06) 2.4em
+			);
 	}
 
 	/* ── Stopped card ── */

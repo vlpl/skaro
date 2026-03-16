@@ -1,6 +1,7 @@
 <script>
 	import { t } from '$lib/i18n/index.js';
 	import { logEntries, llmActive, llmPhase, llmText } from '$lib/stores/logStore.js';
+	import KittIndicator from '$lib/ui/KittIndicator.svelte';
 
 	let streamEl = $state(null);
 
@@ -16,15 +17,15 @@
 	{#if $llmActive || $llmText}
 		<div class="llm-stream" class:done={!$llmActive}>
 			<div class="llm-header">
-				{#if $llmActive}
-					<span class="llm-dot"></span>
-				{/if}
 				<span class="llm-label">
 					{$t('panel.llm_thinking')}{$llmPhase ? ` — ${$llmPhase}` : ''}
 				</span>
+				{#if $llmActive}
+					<KittIndicator cells={14} speed={1100} />
+				{/if}
 			</div>
 			<div class="llm-body" bind:this={streamEl}>
-				<pre>{$llmText || '…'}</pre>
+				<pre class="hacker-text">{$llmText || '…'}</pre>
 			</div>
 		</div>
 	{/if}
@@ -64,7 +65,7 @@
 		display: flex;
 		flex-direction: column;
 		border-bottom: 0.0625rem solid var(--ac);
-		background: color-mix(in srgb, var(--ac) 5%, transparent);
+		background: color-mix(in srgb, var(--ac) 4%, var(--bg2));
 		transition: opacity 0.3s;
 	}
 
@@ -75,27 +76,18 @@
 	.llm-header {
 		display: flex;
 		align-items: center;
-		gap: 0.375rem;
-		padding: 0.25rem 0.75rem 0.125rem;
+		gap: 0.625rem;
+		padding: 0.375rem 0.75rem 0.25rem;
+		flex-shrink: 0;
+	}
+
+	.llm-label {
 		font-size: 0.6875rem;
 		font-weight: 600;
 		color: var(--ac);
 		text-transform: uppercase;
-		letter-spacing: 0.04em;
-		flex-shrink: 0;
-	}
-
-	.llm-dot {
-		width: 0.375rem;
-		height: 0.375rem;
-		border-radius: 50%;
-		background: var(--ac);
-		animation: pulse 1s ease-in-out infinite;
-	}
-
-	@keyframes pulse {
-		0%, 100% { opacity: 1; }
-		50% { opacity: 0.3; }
+		letter-spacing: 0.06em;
+		white-space: nowrap;
 	}
 
 	.llm-body {
@@ -105,14 +97,40 @@
 		padding: 0 0.75rem 0.375rem;
 	}
 
-	.llm-body pre {
+	/* ── Hacker-style LLM text ── */
+	.llm-body pre.hacker-text {
 		margin: 0;
 		font-family: var(--font-ui);
 		font-size: 0.75rem;
-		line-height: 1.5;
-		color: var(--dm);
+		line-height: 1.6;
+		color: #7ec8e3;
 		white-space: pre-wrap;
 		word-break: break-word;
+		text-shadow: 0 0 8px rgba(88, 157, 246, 0.25);
+		background:
+			repeating-linear-gradient(
+				0deg,
+				transparent,
+				transparent 1.2em,
+				rgba(88, 157, 246, 0.03) 1.2em,
+				rgba(88, 157, 246, 0.03) 2.4em
+			);
+		background-size: 100% 2.4em;
+		padding: 0.25rem 0;
+	}
+
+	/* Light theme override */
+	:global([data-theme="light"]) .llm-body pre.hacker-text {
+		color: #1a6e8e;
+		text-shadow: none;
+		background:
+			repeating-linear-gradient(
+				0deg,
+				transparent,
+				transparent 1.2em,
+				rgba(74, 120, 194, 0.06) 1.2em,
+				rgba(74, 120, 194, 0.06) 2.4em
+			);
 	}
 
 	/* ── Log entries — shrinks to min 1 row when LLM active ── */

@@ -55,17 +55,7 @@
 	{/if}
 </div>
 
-{#if actionLoading && !hasUnanswered}
-	<div class="loading-text">
-		<Loader2 size={14} class="spin" />
-		{#if actionLoading === 'clarify'}{$t('action.clarifying')}
-		{:else if actionLoading === 'plan'}{$t('action.planning')}
-		{:else if actionLoading === 'implement'}{$t('action.implementing', { n: currentStage + 1 })}
-		{:else if actionLoading === 'tests'}{$t('action.running_tests')}
-		{:else if actionLoading === 'submit'}{$t('clarify.updating')}
-		{/if}
-	</div>
-{/if}
+
 
 <style>
 	.actions-block {

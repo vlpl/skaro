@@ -6,6 +6,7 @@
 	import { Play, AlertTriangle, Trash2, ChevronUp, ChevronDown, Cpu } from 'lucide-svelte';
 	import LogPane from './LogPane.svelte';
 	import ErrorPane from './ErrorPane.svelte';
+	import KittIndicator from '$lib/ui/KittIndicator.svelte';
 
 	const TAB_ROLES = {
 		constitution: null,
@@ -40,6 +41,8 @@
 	// ── LLM auto-open/close ──
 	let llmOverride = $state(/** @type {boolean|null} */ (null));
 	let wasCollapsedBeforeLlm = $state(true);
+	let savedHeightBeforeLlm = $state(200);
+	let llmOpenHeight = $state(/** @type {number|null} */ (null));
 	let prevLlmActive = $state(false);
 
 	/** CSS transition enabled only during LLM-driven open/close */
@@ -53,24 +56,39 @@
 		animTimer = setTimeout(() => { animating = false; animTimer = null; }, 350);
 	}
 
+	/** Compute 40vh in pixels */
+	function get40vh() {
+		return Math.round(window.innerHeight * 0.4);
+	}
+
 	$effect(() => {
 		const active = $llmActive;
 		if (active && !prevLlmActive) {
-			// LLM just started
+			// LLM just started — open panel to 40vh
 			wasCollapsedBeforeLlm = collapsed;
+			savedHeightBeforeLlm = savedHeight;
+			llmOpenHeight = get40vh();
 			enableAnim();
 			llmOverride = false;
 			activePane = 'run';
 		} else if (!active && prevLlmActive) {
-			// LLM just ended
+			// LLM just ended — restore previous height
 			if (wasCollapsedBeforeLlm) {
-				setTimeout(() => { enableAnim(); llmOverride = null; }, 1500);
+				setTimeout(() => {
+					enableAnim();
+					llmOpenHeight = null;
+					llmOverride = null;
+				}, 1500);
 			} else {
+				llmOpenHeight = null;
 				llmOverride = null;
 			}
 		}
 		prevLlmActive = active;
 	});
+
+	/** Effective panel height — 40vh during LLM, user-resized otherwise */
+	let effectiveHeight = $derived(llmOpenHeight ?? savedHeight);
 
 	let currentTab = $derived.by(() => {
 		const parts = $page.url.pathname.split('/').filter(Boolean);
@@ -159,7 +177,7 @@
 	class:collapsed
 	class:animating
 	bind:this={panelEl}
-	style="height: {collapsed ? '28px' : savedHeight + 'px'}"
+	style="height: {collapsed ? '28px' : effectiveHeight + 'px'}"
 >
 	<div class="tabs-bar">
 		<span class="bp-info ws-status">
@@ -170,7 +188,7 @@
 		<button class="bp-tab" class:active={activePane === 'run'} onclick={() => switchPane('run')}>
 			<Play size={12} /> {$t('panel.run')}
 			{#if $llmActive}
-				<span class="llm-dot"></span>
+				<KittIndicator cells={8} speed={900} />
 			{:else}
 				<span class="count">{$logEntries.length}</span>
 			{/if}
@@ -321,19 +339,6 @@
 	.count.has-errors {
 		background: var(--rd-dim);
 		color: #fff;
-	}
-
-	.llm-dot {
-		width: 0.4375rem;
-		height: 0.4375rem;
-		border-radius: 50%;
-		background: var(--ac);
-		animation: llm-pulse 1s ease-in-out infinite;
-	}
-
-	@keyframes llm-pulse {
-		0%, 100% { opacity: 1; transform: scale(1); }
-		50% { opacity: 0.4; transform: scale(0.7); }
 	}
 
 	.tab-actions {
