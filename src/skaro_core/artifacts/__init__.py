@@ -10,6 +10,7 @@ from skaro_core.artifacts._architecture import ArchitectureMixin
 from skaro_core.artifacts._base import _ArtifactManagerBase
 from skaro_core.artifacts._constitution import ConstitutionMixin
 from skaro_core.artifacts._devplan import DevplanMixin
+from skaro_core.artifacts._features import FeaturesMixin
 from skaro_core.artifacts._helpers import TEMPLATES_PKG_DIR, _find_templates_dir
 from skaro_core.artifacts._milestones import MilestonesMixin
 from skaro_core.artifacts._models import (
@@ -24,6 +25,7 @@ from skaro_core.artifacts._tasks import TasksMixin
 
 
 class ArtifactManager(
+    FeaturesMixin,
     TasksMixin,
     MilestonesMixin,
     DevplanMixin,
@@ -42,6 +44,7 @@ class ArtifactManager(
       _devplan       — dev plan CRUD
       _milestones    — milestone CRUD
       _tasks         — task CRUD, files, stages, slug resolvers, state
+      _features      — feature CRUD, meta, plan, task/ADR linking
     """
 
 

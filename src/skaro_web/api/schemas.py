@@ -265,3 +265,44 @@ class GitCheckoutBody(BaseModel):
     """Switch or create a branch."""
     branch: str = Field(..., min_length=1)
     create: bool = False
+
+
+# ═══════════════════════════════════════════════════
+# Features
+# ═══════════════════════════════════════════════════
+
+class FeatureChatBody(BaseModel):
+    """Payload for feature planning chat."""
+    message: str = Field(..., min_length=1)
+    conversation: list[dict[str, str]] = Field(default_factory=list)
+    scope_paths: list[str] = Field(default_factory=list)
+
+
+class FeatureUpdateBody(BaseModel):
+    """Partial update for feature meta."""
+    title: str | None = None
+    description: str | None = None
+    status: str | None = None
+
+
+class FeatureProposalTask(BaseModel):
+    """A task within a feature proposal."""
+    name: str = ""
+    milestone: str = ""
+    description: str = ""
+    spec: str = ""
+
+
+class FeatureProposalAdr(BaseModel):
+    """Optional ADR within a feature proposal."""
+    title: str = ""
+    content: str = ""
+
+
+class FeatureConfirmBody(BaseModel):
+    """Confirm a feature proposal — creates tasks, ADR, plan."""
+    title: str = Field(..., min_length=1)
+    description: str = ""
+    plan: str = ""
+    tasks: list[FeatureProposalTask] = Field(default_factory=list)
+    adr: FeatureProposalAdr | None = None

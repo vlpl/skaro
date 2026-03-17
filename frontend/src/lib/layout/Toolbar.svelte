@@ -22,6 +22,11 @@
 		const parts = $page.url.pathname.split('/').filter(Boolean);
 		return parts[0] === 'tasks' && parts[1] ? decodeURIComponent(parts[1]) : null;
 	});
+
+	let selectedFeature = $derived.by(() => {
+		const parts = $page.url.pathname.split('/').filter(Boolean);
+		return parts[0] === 'features' && parts[1] ? decodeURIComponent(parts[1]) : null;
+	});
 </script>
 
 <div class="toolbar-strip">
@@ -45,6 +50,9 @@
 			{#if selectedTask}<span class="sep">›</span><span class="last">{selectedTask}</span>{/if}
 		{:else if currentTab === 'settings'}<span class="last">{$t('nav.settings')}</span>
 		{:else if currentTab === 'devplan'}<span class="last">{$t('nav.devplan')}</span>
+		{:else if currentTab === 'features'}
+			<span class:last={!selectedFeature}>{$t('nav.features')}</span>
+			{#if selectedFeature}<span class="sep">›</span><span class="last">{selectedFeature}</span>{/if}
 		{/if}
 	</div>
 	{/if}

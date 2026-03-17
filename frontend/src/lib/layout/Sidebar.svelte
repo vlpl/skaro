@@ -12,6 +12,7 @@
 	import GitBranchAnimated from '$lib/ui/icons/GitBranchAnimated.svelte';
 	import FolderOpenCrossfade from '$lib/ui/icons/FolderOpenCrossfade.svelte';
 	import ShieldCheckAnimated from '$lib/ui/icons/ShieldCheckAnimated.svelte';
+	import SparklesAnimated from '$lib/ui/icons/SparklesAnimated.svelte';
 
 	const STORAGE_KEY = 'skaro:sidebar-collapsed';
 
@@ -21,6 +22,7 @@
 		{ id: 'architecture', icon: LayersAnimated, labelKey: 'nav.architecture' },
 		{ id: 'adr', icon: FolderOpenCrossfade, labelKey: 'nav.adr' },
 		{ id: 'devplan', icon: MapFoldFlipAnimated, labelKey: 'nav.devplan' },
+		{ id: 'features', icon: SparklesAnimated, labelKey: 'nav.features' },
 		{ id: 'tasks', icon: PackageOpenAnimated, labelKey: 'nav.tasks' },
 		{ id: 'review', icon: ShieldCheckAnimated, labelKey: 'nav.review' },
 		{ id: 'git', icon: GitBranchAnimated, labelKey: 'nav.git' },
@@ -66,6 +68,7 @@
 		if (id === 'tasks') return s.tasks?.length ? { text: s.tasks.length, cls: '' } : null;
 		if (id === 'adr') return s.adr_count ? { text: s.adr_count, cls: '' } : null;
 		if (id === 'devplan') return s.has_devplan ? { text: '✓', cls: 'ok' } : null;
+		if (id === 'features') return s.features_count ? { text: s.features_count, cls: '' } : null;
 		if (id === 'review') {
 			if (s.review_passed === true) return { text: '✓', cls: 'ok' };
 			if (s.review_passed === false) return { text: '!', cls: 'warn' };

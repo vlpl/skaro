@@ -217,6 +217,24 @@ export const api = {
 	// File tree (scope selection)
 	getFileTree: (signal) => get('/api/files/tree', signal),
 
+	// Features
+	listFeatures: (signal) => get('/api/features', signal),
+	createFeature: (signal) => post('/api/features', {}, signal),
+	getFeature: (/** @type {string} */ slug, signal) => get(`/api/features/${slug}`, signal),
+	updateFeature: (/** @type {string} */ slug, /** @type {any} */ payload, signal) =>
+		patch(`/api/features/${slug}`, payload, signal),
+	deleteFeature: (/** @type {string} */ slug, signal) => del(`/api/features/${slug}`, signal),
+	sendFeatureChat: (/** @type {string} */ slug, /** @type {string} */ message, /** @type {any[]} */ conversation, /** @type {string[]} */ scope_paths, signal) =>
+		post(`/api/features/${slug}/chat`, { message, conversation, scope_paths: scope_paths || [] }, signal),
+	getFeatureConversation: (/** @type {string} */ slug, signal) =>
+		get(`/api/features/${slug}/conversation`, signal),
+	clearFeatureConversation: (/** @type {string} */ slug, signal) =>
+		del(`/api/features/${slug}/conversation`, signal),
+	confirmFeature: (/** @type {string} */ slug, /** @type {any} */ payload, signal) =>
+		post(`/api/features/${slug}/confirm`, payload, signal),
+	saveFeaturePlan: (/** @type {string} */ slug, /** @type {string} */ content, signal) =>
+		put(`/api/features/${slug}/plan`, { content }, signal),
+
 	// Config
 	getConfig: (signal) => get('/api/config', signal),
 	saveConfig: (/** @type {any} */ payload, signal) => put('/api/config', payload, signal),

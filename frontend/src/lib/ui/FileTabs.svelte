@@ -8,6 +8,7 @@
 		onSelectTab = (id) => {},
 		chatSlot = null,
 		testsSlot = null,
+		infoSlot = null,
 		contentActionsSlot = null,
 	} = $props();
 
@@ -46,6 +47,8 @@
 				{@render chatSlot()}
 			{:else if effectiveTab === 'tests' && testsSlot}
 				{@render testsSlot()}
+			{:else if effectiveTab === 'info' && infoSlot}
+				{@render infoSlot()}
 			{:else}
 				<MarkdownContent {content} />
 			{/if}

@@ -86,6 +86,7 @@ def _build_status(am: ArtifactManager, project_root: Path) -> dict[str, Any]:
         "has_devplan": am.has_devplan,
         "devplan_confirmed": am.is_devplan_confirmed,
         "adr_count": len(am.list_adrs()),
+        "features_count": am.list_features_count(),
         "tasks": tasks,
         "config": {
             "llm_provider": config.llm.provider,
