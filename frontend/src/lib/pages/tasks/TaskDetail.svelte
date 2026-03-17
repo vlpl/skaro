@@ -356,15 +356,21 @@
 		try {
 			await api.deleteTask(taskName);
 			addLog($t('log.task_deleted', { name: taskName }));
-			invalidate('status');
-			status.set(await api.getStatus());
+
+			// Close modal and navigate immediately — don't block on status refresh
+			deleteConfirmOpen = false;
+			deleteLoading = false;
 			taskDetail.set(null);
 			goto('/tasks');
+
+			// Refresh status in background (non-blocking)
+			invalidate('status');
+			api.getStatus().then((s) => status.set(s)).catch(() => {});
 		} catch (e) {
 			addError(e.message, 'deleteTask');
+			deleteLoading = false;
+			deleteConfirmOpen = false;
 		}
-		deleteLoading = false;
-		deleteConfirmOpen = false;
 	}
 </script>
 

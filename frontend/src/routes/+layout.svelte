@@ -36,15 +36,17 @@
 		settings: 'nav.settings',
 	};
 
+	let appName = $derived($status?.project_name || 'Skaro');
+
 	let pageTitle = $derived.by(() => {
 		const parts = $page.url.pathname.split('/').filter(Boolean);
 		const section = parts[0] || 'dashboard';
 		const navKey = TAB_NAV_KEYS[section];
 		const label = navKey ? $t(navKey) : section;
 		if (section === 'tasks' && parts[1]) {
-			return `Skaro / ${label} / ${decodeURIComponent(parts[1])}`;
+			return `${appName} / ${label} / ${decodeURIComponent(parts[1])}`;
 		}
-		return `Skaro / ${label}`;
+		return `${appName} / ${label}`;
 	});
 
 	$effect(() => {

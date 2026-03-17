@@ -11,6 +11,21 @@
 		return String(n);
 	}
 
+	/** Map of route segment → i18n key. Covers every sidebar entry. */
+	const NAV_KEYS = {
+		dashboard: 'nav.dashboard',
+		constitution: 'nav.constitution',
+		architecture: 'nav.architecture',
+		adr: 'nav.adr',
+		devplan: 'nav.devplan',
+		features: 'nav.features',
+		tasks: 'nav.tasks',
+		review: 'nav.review',
+		git: 'nav.git',
+		settings: 'nav.settings',
+		about: 'nav.about',
+	};
+
 	let projectName = $derived($status?.project_name || '');
 
 	let currentTab = $derived.by(() => {
@@ -18,14 +33,30 @@
 		return parts[0] || 'dashboard';
 	});
 
-	let selectedTask = $derived.by(() => {
+	/**
+	 * Build breadcrumb segments from the current URL.
+	 * Each segment: { label, href?, isLast }
+	 */
+	let crumbs = $derived.by(() => {
 		const parts = $page.url.pathname.split('/').filter(Boolean);
-		return parts[0] === 'tasks' && parts[1] ? decodeURIComponent(parts[1]) : null;
-	});
+		const section = parts[0] || 'dashboard';
+		const navKey = NAV_KEYS[section];
+		const sectionLabel = navKey ? $t(navKey) : section;
 
-	let selectedFeature = $derived.by(() => {
-		const parts = $page.url.pathname.split('/').filter(Boolean);
-		return parts[0] === 'features' && parts[1] ? decodeURIComponent(parts[1]) : null;
+		// Sub-page slug (e.g. tasks/[name] or features/[slug])
+		const subPage = parts[1] ? decodeURIComponent(parts[1]) : null;
+
+		const result = [];
+
+		if (subPage) {
+			// Section is a link when there's a deeper page
+			result.push({ label: sectionLabel, href: `/${section}` });
+			result.push({ label: subPage, href: null, isLast: true });
+		} else {
+			result.push({ label: sectionLabel, href: null, isLast: true });
+		}
+
+		return result;
 	});
 </script>
 
@@ -35,26 +66,17 @@
 		{projectName || 'Skaro'}
 	</div>
 	{:else}
-	<div class="breadcrumb">
-		{#if projectName}
-			<span>{projectName}</span>
-		{:else}
-			<span>Skaro</span>
-		{/if}
-		<span class="sep">›</span>
-		{#if currentTab === 'constitution'}<span class="last">{$t('nav.constitution')}</span>
-		{:else if currentTab === 'architecture'}<span class="last">{$t('nav.architecture')}</span>
-		{:else if currentTab === 'adr'}<span class="last">{$t('nav.adr')}</span>
-		{:else if currentTab === 'tasks'}
-			<span class:last={!selectedTask}>{$t('nav.tasks')}</span>
-			{#if selectedTask}<span class="sep">›</span><span class="last">{selectedTask}</span>{/if}
-		{:else if currentTab === 'settings'}<span class="last">{$t('nav.settings')}</span>
-		{:else if currentTab === 'devplan'}<span class="last">{$t('nav.devplan')}</span>
-		{:else if currentTab === 'features'}
-			<span class:last={!selectedFeature}>{$t('nav.features')}</span>
-			{#if selectedFeature}<span class="sep">›</span><span class="last">{selectedFeature}</span>{/if}
-		{/if}
-	</div>
+	<nav class="breadcrumb" aria-label="Breadcrumb">
+		<a class="crumb" href="/dashboard">{projectName || 'Skaro'}</a>
+		{#each crumbs as crumb}
+			<span class="sep">›</span>
+			{#if crumb.href}
+				<a class="crumb" href={crumb.href}>{crumb.label}</a>
+			{:else}
+				<span class="crumb last">{crumb.label}</span>
+			{/if}
+		{/each}
+	</nav>
 	{/if}
 	<div class="tokens">
 		<Zap size={11} />
@@ -88,6 +110,16 @@
 
 	.sep {
 		color: var(--dm2);
+	}
+
+	a.crumb {
+		color: var(--dm);
+		text-decoration: none;
+		transition: color 0.12s;
+	}
+
+	a.crumb:hover {
+		color: var(--tx-bright);
 	}
 
 	.last {
