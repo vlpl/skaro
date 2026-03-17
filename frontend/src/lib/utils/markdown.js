@@ -1,246 +1,144 @@
 /**
- * Lightweight markdown → HTML renderer.
- * Handles: headers, bold, italic, code blocks, inline code, lists,
- * blockquotes, tables, checkboxes, HR.
+ * Markdown → HTML renderer powered by markdown-it + highlight.js.
  *
- * Code-block extraction uses a line-by-line state machine instead of regex,
- * which correctly handles nested fences, varying backtick counts, and
- * LLM responses wrapped entirely in ```markdown … ```.
+ * Replaces the previous hand-rolled regex renderer with a standards-compliant
+ * CommonMark parser.  All strip/pre-processing helpers now operate on the
+ * markdown-it token stream instead of custom state-machine logic.
+ *
+ * @module utils/markdown
+ */
+
+import markdownit from 'markdown-it';
+import hljs from 'highlight.js/lib/common';
+
+// ─── markdown-it instance (singleton) ────────────────────────────────
+
+const md = markdownit({
+	html: false,     // no raw HTML pass-through (safe for LLM output)
+	linkify: false,  // don't auto-convert plain URLs
+	typographer: false,
+});
+
+// ─── Highlight.js integration ────────────────────────────────────────
+
+const defaultFenceRender =
+	md.renderer.rules.fence ||
+	function (tokens, idx, options, _env, self) {
+		return self.renderToken(tokens, idx, options);
+	};
+
+md.renderer.rules.fence = function (tokens, idx, options, env, self) {
+	const token = tokens[idx];
+	const lang = token.info ? token.info.trim().split(/\s+/)[0] : '';
+
+	if (lang && hljs.getLanguage(lang)) {
+		try {
+			const highlighted = hljs.highlight(token.content, {
+				language: lang,
+				ignoreIllegals: true,
+			}).value;
+
+			const langAttr = md.utils.escapeHtml(lang);
+			return (
+				`<pre><code class="hljs language-${langAttr}">` +
+				highlighted +
+				'</code></pre>\n'
+			);
+		} catch {
+			/* fall through to default */
+		}
+	}
+
+	return defaultFenceRender(tokens, idx, options, env, self);
+};
+
+// ─── Checkbox plugin (inline, no external dependency) ────────────────
+
+function checkboxPlugin(mdInstance) {
+	mdInstance.core.ruler.after('inline', 'checkbox', function (state) {
+		for (const token of state.tokens) {
+			if (token.type !== 'inline' || !token.children?.length) continue;
+			const first = token.children[0];
+			if (first.type !== 'text') continue;
+			const c = first.content;
+			if (/^\[x\]\s/i.test(c)) {
+				first.content = '☑ ' + c.slice(4);
+			} else if (c.startsWith('[ ] ')) {
+				first.content = '☐ ' + c.slice(4);
+			}
+		}
+	});
+}
+md.use(checkboxPlugin);
+
+// ─── Links open in new tab ───────────────────────────────────────────
+
+const defaultLinkOpen =
+	md.renderer.rules.link_open ||
+	function (tokens, idx, options, _env, self) {
+		return self.renderToken(tokens, idx, options);
+	};
+
+md.renderer.rules.link_open = function (tokens, idx, options, env, self) {
+	tokens[idx].attrSet('target', '_blank');
+	tokens[idx].attrSet('rel', 'noopener noreferrer');
+	return defaultLinkOpen(tokens, idx, options, env, self);
+};
+
+// ─── Public API ──────────────────────────────────────────────────────
+
+/**
+ * Render markdown text to sanitised HTML.
+ *
+ * Automatically strips a single outer ```markdown wrapper that LLMs
+ * sometimes add around the entire response.
  *
  * @param {string} text
  * @returns {string}
  */
 export function renderMarkdown(text) {
 	if (!text) return '';
-
-	// ── Phase 0: strip a single outer ```markdown wrapper if present ──
-	let src = stripOuterMarkdownFence(text);
-
-	// ── Phase 1: extract fenced code blocks via state machine ──
-	const slots = [];
-
-	function slot(html) {
-		const id = `\x00SLOT${slots.length}\x00`;
-		slots.push(html);
-		return id;
-	}
-
-	src = extractFencedBlocks(src, (lang, code) =>
-		slot(`<pre><code>${esc(code.trimEnd())}</code></pre>`)
-	);
-
-	// Inline code (must run after fenced blocks are slotted)
-	src = src.replace(/`([^`\n]+)`/g, (_, code) =>
-		slot(`<code>${esc(code)}</code>`)
-	);
-
-	// ── Phase 2: escape remaining text ──
-	let h = esc(src);
-
-	// Headers
-	h = h.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-	h = h.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-	h = h.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-	// Bold, italic
-	h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-	h = h.replace(/\*(.+?)\*/g, '<em>$1</em>');
-	// Blockquote
-	h = h.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
-	// HR
-	h = h.replace(/^---$/gm, '<hr>');
-	// Checkbox lists (must come before generic list rule)
-	h = h.replace(/^- \[x\] (.+)$/gim, '<li>☑ $1</li>');
-	h = h.replace(/^- \[ \] (.+)$/gm, '<li>☐ $1</li>');
-	// Lists
-	h = h.replace(/^- (.+)$/gm, '<li>$1</li>');
-	h = h.replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>');
-	// Tables
-	h = h.replace(/^\|(.+)\|$/gm, (_, row) => {
-		const cells = row.split('|').map((c) => c.trim());
-		if (cells.every((c) => /^[-:]+$/.test(c))) return '<!--sep-->';
-		return '<tr>' + cells.map((c) => `<td>${c}</td>`).join('') + '</tr>';
-	});
-	h = h.replace(/((?:\s*(?:<tr>.*?<\/tr>|<!--sep-->)\s*)+)/g, (block) => {
-		const rows = block.replace(/<!--sep-->/g, '').trim();
-		if (!rows) return '';
-		const promoted = rows.replace(
-			/^<tr>(.*?)<\/tr>/,
-			(_, inner) => '<thead><tr>' + inner.replace(/<td>/g, '<th>').replace(/<\/td>/g, '</th>') + '</tr></thead>'
-		);
-		return `<table>${promoted}</table>`;
-	});
-	// Paragraphs
-	h = h.replace(/\n\n/g, '</p><p>');
-	h = '<p>' + h + '</p>';
-	h = h.replace(/<p>\s*<(h[123]|pre|blockquote|table|hr|li|ul|ol)/g, '<$1');
-	h = h.replace(/<\/(h[123]|pre|blockquote|table|hr|li|ul|ol)>\s*<\/p>/g, '</$1>');
-	h = h.replace(/<p>\s*<\/p>/g, '');
-	// Wrap consecutive <li>
-	h = h.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
-	h = h.replace(/<\/ul>\s*<ul>/g, '');
-
-	// ── Phase 3: restore slots ──
-	for (let i = 0; i < slots.length; i++) {
-		h = h.replace(`\x00SLOT${i}\x00`, slots[i]);
-	}
-
-	return h;
-}
-
-/**
- * Strip a single outer ```markdown / ```md / ``` wrapper that LLMs
- * sometimes place around the entire response.
- *
- * Uses a line-by-line approach (not regex) so it never accidentally
- * matches inner code blocks.
- *
- * @param {string} text
- * @returns {string}
- */
-function stripOuterMarkdownFence(text) {
-	const lines = text.split('\n');
-
-	// Find the first non-empty line
-	let first = -1;
-	for (let i = 0; i < lines.length; i++) {
-		if (lines[i].trim() !== '') { first = i; break; }
-	}
-	if (first === -1) return text;
-
-	// Find the last non-empty line
-	let last = -1;
-	for (let i = lines.length - 1; i >= 0; i--) {
-		if (lines[i].trim() !== '') { last = i; break; }
-	}
-	if (last === -1 || last <= first) return text;
-
-	// Check if first non-empty line is an opening fence
-	const openMatch = lines[first].match(/^(`{3,})(?:markdown|md)?\s*$/);
-	if (!openMatch) return text;
-
-	const fenceChar = openMatch[1]; // e.g. "```" or "````"
-	const minLen = fenceChar.length;
-
-	// Check if last non-empty line is a closing fence with >= same backtick count
-	const closeMatch = lines[last].match(/^(`{3,})\s*$/);
-	if (!closeMatch || closeMatch[1].length < minLen) return text;
-
-	// Verify there are no unmatched fences in between that would make this
-	// NOT a simple outer wrapper. Walk inner lines and track fence depth.
-	let depth = 0;
-	for (let i = first + 1; i < last; i++) {
-		const m = lines[i].match(/^(`{3,})(\S*)\s*$/);
-		if (!m) continue;
-		if (m[1].length >= minLen) {
-			// This could be an inner open or close fence
-			depth += (depth > 0 && !m[2]) ? -1 : (m[2] || depth === 0) ? 1 : -1;
-		}
-	}
-	// If depth is 0, all inner fences are balanced → safe to strip
-	if (depth !== 0) return text;
-
-	// Strip outer fence
-	return lines.slice(first + 1, last).join('\n');
-}
-
-/**
- * Extract fenced code blocks from text using a line-by-line state machine.
- *
- * Handles:
- *  - Variable backtick counts (```, ````, etc.)
- *  - Opening fences with or without language tags
- *  - Closing fences with >= opening backtick count
- *  - Proper nesting (outer fence needs more backticks than inner)
- *
- * @param {string} text
- * @param {(lang: string, code: string) => string} replacer
- * @returns {string}
- */
-function extractFencedBlocks(text, replacer) {
-	const lines = text.split('\n');
-	const output = [];
-
-	let inFence = false;
-	let fenceLen = 0;
-	let fenceLang = '';
-	/** @type {string[]} */
-	let codeLines = [];
-
-	for (const line of lines) {
-		if (!inFence) {
-			// Try to match an opening fence: 3+ backticks, optional label, at line start
-			const open = line.match(/^(`{3,})(\S*)\s*$/);
-			if (open) {
-				inFence = true;
-				fenceLen = open[1].length;
-				fenceLang = open[2] || '';
-				codeLines = [];
-			} else {
-				output.push(line);
-			}
-		} else {
-			// Try to match a closing fence: backticks >= opening count, no other content
-			const close = line.match(/^(`{3,})\s*$/);
-			if (close && close[1].length >= fenceLen) {
-				// End of fenced block
-				const code = codeLines.join('\n');
-				output.push(replacer(fenceLang, code));
-				inFence = false;
-				fenceLen = 0;
-				fenceLang = '';
-				codeLines = [];
-			} else {
-				codeLines.push(line);
-			}
-		}
-	}
-
-	// If we ended still inside a fence (unclosed), treat remaining lines as code
-	if (inFence && codeLines.length > 0) {
-		output.push(replacer(fenceLang, codeLines.join('\n')));
-	}
-
-	return output.join('\n');
+	const src = stripOuterMarkdownFence(text);
+	return md.render(src);
 }
 
 /**
  * Strip all top-level fenced code blocks from text, returning only the
- * non-code parts. Uses the same line-by-line state machine as
- * extractFencedBlocks, so it correctly handles nested fences inside
- * JSON/spec content from LLM responses.
+ * non-code parts.  Uses the markdown-it token stream so it handles any
+ * valid CommonMark fence (variable backtick counts, info-strings, etc.).
  *
  * @param {string} text
  * @returns {string}
  */
 export function stripFencedBlocks(text) {
-	return extractFencedBlocks(text, () => '');
+	return _stripByToken(text, () => true);
 }
 
 /**
  * Strip only file-path code blocks from text, preserving all others.
  *
- * File blocks are identified by a fence label containing ``/`` or ``.``
- * (e.g. ``\`\`\`src/app.py``), matching the backend ``_parse_file_blocks``
+ * File blocks are identified by an info-string containing `/` or `.`
+ * (e.g. ```src/app.py), matching the backend `_parse_file_blocks`
  * heuristic.  These blocks are shown as interactive file cards in the UI,
- * so they must be removed from the markdown text to avoid duplication.
- *
- * All other fenced blocks (language tags like ``python``, ``json``, or
- * bare ``\`\`\```) are kept intact for {@link renderMarkdown} to render
- * as ``<pre><code>`` elements.
+ * so they must be removed from the markdown to avoid duplication.
  *
  * @param {string} text
  * @returns {string}
  */
 export function stripFilePathBlocks(text) {
-	return extractFencedBlocks(text, (lang, code) => {
-		if (lang && (lang.includes('/') || lang.includes('.'))) {
-			return '';
-		}
-		return `\`\`\`${lang}\n${code}\n\`\`\``;
+	return _stripByToken(text, (info) => {
+		return info.includes('/') || info.includes('.');
 	});
 }
 
-/** @param {string} s */
+/**
+ * HTML-escape a string.
+ *
+ * @deprecated Prefer markdown-it's built-in escaping via md.utils.escapeHtml.
+ *             Kept for backward compatibility.
+ * @param {string} s
+ * @returns {string}
+ */
 export function esc(s) {
 	return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -314,4 +212,83 @@ export function parseClarifyQuestions(text) {
 		questions.push(current.join('\n').trim());
 	}
 	return questions;
+}
+
+// ─── Internal helpers ────────────────────────────────────────────────
+
+/**
+ * Generic token-based fence stripper.
+ *
+ * Parses `text` with markdown-it, finds all `fence` tokens whose
+ * info-string satisfies `shouldStrip(info)`, and removes the
+ * corresponding source lines.
+ *
+ * @param {string} text
+ * @param {(info: string) => boolean} shouldStrip
+ * @returns {string}
+ */
+function _stripByToken(text, shouldStrip) {
+	if (!text) return '';
+
+	const tokens = md.parse(text, {});
+	const lines = text.split('\n');
+
+	// Collect [start, end) line ranges to exclude (already sorted by position)
+	const excludes = [];
+	for (const token of tokens) {
+		if (token.type === 'fence' && token.map) {
+			const info = (token.info || '').trim();
+			if (shouldStrip(info)) {
+				excludes.push(token.map);
+			}
+		}
+	}
+
+	if (excludes.length === 0) return text;
+
+	const result = [];
+	let cursor = 0;
+	for (const [start, end] of excludes) {
+		for (; cursor < start; cursor++) result.push(lines[cursor]);
+		cursor = end;
+	}
+	for (; cursor < lines.length; cursor++) result.push(lines[cursor]);
+
+	return result.join('\n');
+}
+
+/**
+ * Strip a single outer ```markdown / ```md / bare ``` wrapper that LLMs
+ * sometimes place around the entire response.
+ *
+ * Uses the markdown-it token stream: if the entire text parses as a
+ * single `fence` token whose info-string is "markdown", "md", or empty
+ * (allowing leading/trailing blank lines), return the fence content.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+function stripOuterMarkdownFence(text) {
+	const tokens = md.parse(text, {});
+	const fences = tokens.filter((t) => t.type === 'fence');
+
+	if (fences.length !== 1) return text;
+
+	const ft = fences[0];
+	const info = (ft.info || '').trim().toLowerCase();
+	if (info !== 'markdown' && info !== 'md' && info !== '') return text;
+
+	// Verify the fence spans the full text (ignoring blank surrounding lines)
+	if (!ft.map) return text;
+	const [start, end] = ft.map;
+	const lines = text.split('\n');
+
+	for (let i = 0; i < start; i++) {
+		if (lines[i].trim()) return text;
+	}
+	for (let i = end; i < lines.length; i++) {
+		if (lines[i].trim()) return text;
+	}
+
+	return ft.content;
 }

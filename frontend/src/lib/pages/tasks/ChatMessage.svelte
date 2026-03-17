@@ -156,16 +156,6 @@
         margin: 2rem 0;
     }
 
-	.turn-text :global(pre) {
-		background: var(--bg);
-		border: 0.0625rem solid var(--bd);
-		border-radius: var(--r);
-		padding: 0.5rem 0.625rem;
-		overflow-x: auto;
-		font-size: 0.75rem;
-		margin: 0.375rem 0;
-	}
-
 	.user-text {
 		color: var(--tx-bright);
 		white-space: pre-wrap;
