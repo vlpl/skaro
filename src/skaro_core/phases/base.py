@@ -318,7 +318,11 @@ class BasePhase(ABC):
         parts.append(f"# LANGUAGE\n\n{self._lang_instruction()}")
 
         # OS environment — so LLM generates compatible commands
-        parts.append(f"# ENVIRONMENT\n\n{self._os_info()}")
+        env_info = self._os_info()
+        exec_env_desc = self.config.execution_env.describe_for_llm()
+        if exec_env_desc:
+            env_info += f"\n\n## Execution environment\n{exec_env_desc}"
+        parts.append(f"# ENVIRONMENT\n\n{env_info}")
 
         constitution = self.artifacts.read_constitution()
         if constitution:

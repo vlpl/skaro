@@ -238,6 +238,7 @@ export const api = {
 	// Config
 	getConfig: (signal) => get('/api/config', signal),
 	saveConfig: (/** @type {any} */ payload, signal) => put('/api/config', payload, signal),
+	detectEnv: (signal) => get('/api/config/detect-env', signal),
 
 	// Skills
 	getSkills: (signal) => get('/api/skills', signal),

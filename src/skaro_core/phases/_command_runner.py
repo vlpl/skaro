@@ -71,10 +71,15 @@ class CommandRunnerMixin:
         try:
             env = _build_env()
 
-            # On Windows, force console to UTF-8 via chcp 65001
+            # Wrap command via execution environment (docker, prefix, etc.)
             actual_command = command
+            config = getattr(self, "config", None)
+            if config and hasattr(config, "execution_env"):
+                actual_command = config.execution_env.build_command_wrapper(command)
+
+            # On Windows, force console to UTF-8 via chcp 65001
             if platform.system() == "Windows":
-                actual_command = f"chcp 65001 >nul 2>&1 && {command}"
+                actual_command = f"chcp 65001 >nul 2>&1 && {actual_command}"
 
             proc = await asyncio.create_subprocess_shell(
                 actual_command,

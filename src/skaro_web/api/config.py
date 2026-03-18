@@ -56,6 +56,10 @@ def _config_to_frontend(config: SkaroConfig) -> dict:
             else:
                 rd["api_key"] = ""
 
+    # Always include execution_env for frontend
+    if "execution_env" not in data:
+        data["execution_env"] = config.execution_env.to_dict()
+
     return data
 
 
@@ -118,3 +122,50 @@ async def update_config(
     save_config(config, project_root)
     await broadcast(request, {"event": "config:updated"})
     return {"success": True}
+
+
+@router.get("/detect-env")
+async def detect_env(project_root: Path = Depends(get_project_root)):
+    """Auto-detect execution environment from project files.
+
+    Scans for Dockerfile, docker-compose.yml, .env, venv, etc.
+    Returns hints for the frontend to pre-fill environment settings.
+    """
+    hints: dict = {"docker": False, "services": [], "has_dotenv": False, "has_venv": False}
+
+    # Docker Compose
+    compose_names = ["docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"]
+    compose_file = ""
+    for name in compose_names:
+        if (project_root / name).exists():
+            compose_file = name
+            break
+
+    if compose_file:
+        hints["docker"] = True
+        hints["compose_file"] = compose_file
+        # Parse services from compose file
+        try:
+            import yaml
+
+            compose_data = yaml.safe_load((project_root / compose_file).read_text(encoding="utf-8"))
+            if isinstance(compose_data, dict) and "services" in compose_data:
+                hints["services"] = list(compose_data["services"].keys())
+        except Exception:
+            pass
+
+    # Dockerfile without compose
+    if not compose_file and (project_root / "Dockerfile").exists():
+        hints["docker"] = True
+
+    # .env file
+    hints["has_dotenv"] = (project_root / ".env").exists()
+
+    # Virtual environment
+    for venv_dir in ("venv", ".venv", "env"):
+        if (project_root / venv_dir).is_dir():
+            hints["has_venv"] = True
+            hints["venv_dir"] = venv_dir
+            break
+
+    return hints

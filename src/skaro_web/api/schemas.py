@@ -226,6 +226,16 @@ class UIConfigBody(BaseModel):
     auto_open_browser: bool = True
 
 
+class ExecutionEnvBody(BaseModel):
+    """Execution environment settings for verify commands."""
+    mode: str = "host"
+    docker_service: str = ""
+    docker_compose_file: str = ""
+    workdir: str = ""
+    command_prefix: str = ""
+    shell: str = ""
+
+
 class ConfigUpdateBody(BaseModel):
     llm: LLMConfigBody = Field(default_factory=LLMConfigBody)
     ui: UIConfigBody = Field(default_factory=UIConfigBody)
@@ -234,6 +244,7 @@ class ConfigUpdateBody(BaseModel):
     project_name: str = ""
     project_description: str = ""
     roles: dict[str, RoleConfigBody | None] = Field(default_factory=dict)
+    execution_env: ExecutionEnvBody = Field(default_factory=ExecutionEnvBody)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to plain dict for SkaroConfig.from_dict() compatibility."""

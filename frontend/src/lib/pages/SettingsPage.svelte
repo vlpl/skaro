@@ -11,6 +11,7 @@
 	import LanguagePicker from '$lib/pages/settings/LanguagePicker.svelte';
 	import ThemePicker from '$lib/pages/settings/ThemePicker.svelte';
 	import SkillsPanel from '$lib/pages/settings/SkillsPanel.svelte';
+	import EnvironmentPanel from '$lib/pages/settings/EnvironmentPanel.svelte';
 	import { setTheme } from '$lib/stores/themeStore.js';
 	import { setProviderLabelsFromPresets } from '$lib/ui/icons/providers.js';
 
@@ -31,6 +32,7 @@
 		{ id: 'general', label: $t('settings.tab_general') },
 		{ id: 'llm', label: $t('settings.tab_llm') },
 		{ id: 'roles', label: $t('settings.tab_roles') },
+		{ id: 'environment', label: $t('settings.tab_environment') },
 		{ id: 'skills', label: $t('settings.tab_skills') },
 	]);
 
@@ -45,6 +47,13 @@
 	let lang = $state('en');
 	let theme = $state('dark');
 	let uiAutoOpen = $state(true);
+	// Execution environment
+	let envMode = $state('host');
+	let envDockerService = $state('');
+	let envDockerComposeFile = $state('');
+	let envWorkdir = $state('');
+	let envCommandPrefix = $state('');
+	let envShell = $state('');
 	// Provider names and models come from the backend (providers.yaml)
 	let providerNames = $derived(config?._provider_keys || Object.keys(presets));
 
@@ -66,6 +75,13 @@
 			lang = config.lang || 'en';
 			theme = config.theme || 'dark';
 			uiAutoOpen = config.ui?.auto_open_browser ?? true;
+			const execEnv = config.execution_env || {};
+			envMode = execEnv.mode || 'host';
+			envDockerService = execEnv.docker_service || '';
+			envDockerComposeFile = execEnv.docker_compose_file || '';
+			envWorkdir = execEnv.workdir || '';
+			envCommandPrefix = execEnv.command_prefix || '';
+			envShell = execEnv.shell || '';
 			for (const r of roles) {
 				const rd = config.roles?.[r.id];
 				roleOverrides[r.id] = rd?.provider && rd?.model
@@ -105,6 +121,14 @@
 				project_name: projectName,
 				project_description: projectDescription,
 				roles: {},
+				execution_env: {
+					mode: envMode,
+					docker_service: envDockerService,
+					docker_compose_file: envDockerComposeFile,
+					workdir: envWorkdir,
+					command_prefix: envCommandPrefix,
+					shell: envShell,
+				},
 			};
 			for (const r of roles) {
 				const ro = roleOverrides[r.id];
@@ -223,6 +247,15 @@
 						<p class="card-desc">{$t('settings.skills_desc')}</p>
 						<SkillsPanel />
 					</div>
+				{:else if activeTab === 'environment'}
+					<EnvironmentPanel
+						bind:mode={envMode}
+						bind:dockerService={envDockerService}
+						bind:dockerComposeFile={envDockerComposeFile}
+						bind:workdir={envWorkdir}
+						bind:commandPrefix={envCommandPrefix}
+						bind:shell={envShell}
+					/>
 				{/if}
 
 				<!-- Save (visible in all tabs except skills which manages its own state) -->
