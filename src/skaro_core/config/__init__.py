@@ -13,6 +13,7 @@ from skaro_core.config._models import (
     SKARO_DIR,
     TOKENS_FILENAME,
     USAGE_LOG_FILENAME,
+    ExecutionEnvConfig,
     LLMConfig,
     RoleConfig,
     SkaroConfig,
@@ -32,6 +33,7 @@ __all__ = [
     "TOKENS_FILENAME",
     "USAGE_LOG_FILENAME",
     # Dataclasses
+    "ExecutionEnvConfig",
     "LLMConfig",
     "RoleConfig",
     "SkaroConfig",

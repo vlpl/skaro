@@ -23,7 +23,7 @@
 		{ id: 'architecture', icon: LayersAnimated, labelKey: 'nav.architecture' },
 		{ id: 'adr', icon: FolderOpenCrossfade, labelKey: 'nav.adr' },
 		{ id: 'devplan', icon: MapFoldFlipAnimated, labelKey: 'nav.devplan' },
-		{ id: 'features', icon: SparklesAnimated, labelKey: 'nav.features' },
+		{ id: 'features', icon: SparklesAnimated, labelKey: 'nav.features', separatorBefore: true },
 		{ id: 'tasks', icon: PackageOpenAnimated, labelKey: 'nav.tasks' },
 		{ id: 'review', icon: ShieldCheckAnimated, labelKey: 'nav.review' },
 		{ id: 'cicd', icon: Workflow, labelKey: 'nav.cicd', lucide: true },
@@ -104,6 +104,7 @@
 			<a
 				class="nav-item"
 				class:active={isActive(tab.id)}
+				class:nav-separator={tab.separatorBefore}
 				href="/{tab.id}"
 				data-sveltekit-noscroll
 				title={collapsed ? $t(tab.labelKey) : undefined}
@@ -298,6 +299,10 @@
 
 	.nav-item:hover {
 		background: var(--bg2);
+	}
+
+	.nav-separator {
+		margin-top: 1rem;
 	}
 
 	.nav-item.active {

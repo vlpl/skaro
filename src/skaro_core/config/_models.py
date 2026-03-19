@@ -89,6 +89,105 @@ class UIConfig:
 
 
 @dataclass
+class ExecutionEnvConfig:
+    """Execution environment for verify commands.
+
+    Controls how shell commands (verify, tests) are executed:
+    - ``host`` — run directly on the host OS (default).
+    - ``docker`` — wrap with ``docker compose exec <service>``.
+
+    When ``mode`` is ``docker``, the ``docker_service`` field is required.
+    ``command_prefix`` allows arbitrary wrapping (e.g. ``ssh user@host``).
+    """
+
+    mode: str = "host"  # "host" | "docker"
+    docker_service: str = ""
+    docker_compose_file: str = ""
+    workdir: str = ""
+    command_prefix: str = ""
+    shell: str = ""
+
+    def to_dict(self) -> dict:
+        d: dict = {"mode": self.mode}
+        if self.docker_service:
+            d["docker_service"] = self.docker_service
+        if self.docker_compose_file:
+            d["docker_compose_file"] = self.docker_compose_file
+        if self.workdir:
+            d["workdir"] = self.workdir
+        if self.command_prefix:
+            d["command_prefix"] = self.command_prefix
+        if self.shell:
+            d["shell"] = self.shell
+        return d
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ExecutionEnvConfig:
+        return cls(
+            mode=data.get("mode", "host"),
+            docker_service=data.get("docker_service", ""),
+            docker_compose_file=data.get("docker_compose_file", ""),
+            workdir=data.get("workdir", ""),
+            command_prefix=data.get("command_prefix", ""),
+            shell=data.get("shell", ""),
+        )
+
+    def build_command_wrapper(self, command: str) -> str:
+        """Wrap a command according to execution environment settings.
+
+        Returns the final command string ready for subprocess execution.
+        """
+        if self.command_prefix:
+            return f"{self.command_prefix} {command}"
+
+        if self.mode == "docker" and self.docker_service:
+            parts = ["docker", "compose"]
+            if self.docker_compose_file:
+                parts.extend(["-f", self.docker_compose_file])
+            parts.extend(["exec", "-T"])
+            if self.workdir:
+                parts.extend(["-w", self.workdir])
+            parts.append(self.docker_service)
+            if self.shell:
+                parts.extend([self.shell, "-c", f'"{command}"'])
+            else:
+                parts.extend(["sh", "-c", f'"{command}"'])
+            return " ".join(parts)
+
+        return command
+
+    def describe_for_llm(self) -> str:
+        """Return human-readable environment description for LLM prompts."""
+        if self.command_prefix:
+            return (
+                f"Commands are executed with prefix: {self.command_prefix}\n"
+                "Generate commands that work inside this environment."
+            )
+
+        if self.mode == "docker" and self.docker_service:
+            parts = [f"Commands run INSIDE Docker container (service: {self.docker_service})."]
+            if self.docker_compose_file:
+                parts.append(f"Compose file: {self.docker_compose_file}")
+            if self.workdir:
+                parts.append(f"Working directory in container: {self.workdir}")
+                parts.append(
+                    f"CRITICAL: All file paths in commands (pytest, mypy, ruff, etc.) "
+                    f"must be relative to the container working directory ({self.workdir}). "
+                    f"The project file tree shown below reflects the HOST filesystem structure. "
+                    f"Do NOT use host-relative paths in commands — convert them to container-relative paths. "
+                    f"Example: if the file tree shows 'myproject/apps/module.py' and the container "
+                    f"workdir is '/app', the correct command path is 'apps/module.py', NOT 'myproject/apps/module.py'."
+                )
+            parts.append(
+                "Generate plain commands (e.g. `pytest tests/`), NOT `docker compose exec ...`. "
+                "The wrapping is handled automatically."
+            )
+            return "\n".join(parts)
+
+        return ""
+
+
+@dataclass
 class VerifyCommand:
     """A single verification command to run during the Tests phase."""
 
@@ -152,6 +251,7 @@ class SkaroConfig:
     )
     verify_commands: list[VerifyCommand] = field(default_factory=list)
     skills: SkillsConfig = field(default_factory=SkillsConfig)
+    execution_env: ExecutionEnvConfig = field(default_factory=ExecutionEnvConfig)
 
     def llm_for_role(self, role: str | None) -> LLMConfig:
         """Return LLM config for a specific role, falling back to default."""
@@ -234,6 +334,12 @@ class SkaroConfig:
         if skills_dict:
             d["skills"] = skills_dict
 
+        env_dict = self.execution_env.to_dict()
+        if env_dict.get("mode", "host") != "host" or any(
+            env_dict.get(k) for k in ("docker_service", "command_prefix", "shell", "workdir", "docker_compose_file")
+        ):
+            d["execution_env"] = env_dict
+
         return d
 
     @classmethod
@@ -294,4 +400,5 @@ class SkaroConfig:
             roles=roles,
             verify_commands=verify_commands,
             skills=SkillsConfig.from_dict(data.get("skills") or {}),
+            execution_env=ExecutionEnvConfig.from_dict(data.get("execution_env") or {}),
         )

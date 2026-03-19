@@ -43,12 +43,21 @@ def _has_inner_close_ahead(lines: list[str], start: int) -> bool:
     on the way.  Returns ``True`` if a bare ````` is found that would
     close the inner block — meaning the ````` that triggered this check
     is an inner opener, not the outer block closer.
+
+    Labeled fences that look like file paths (contain ``/`` or ``.``)
+    are treated as NEW outer file blocks, not inner fences — their
+    presence means the bare ````` was the outer closer.
     """
     depth = 0
     for k in range(start, len(lines)):
         stripped = lines[k].strip()
         if stripped.startswith("```") and len(stripped) > 3:
-            # Labeled opener inside the look-ahead — track it
+            label = stripped[3:].strip()
+            # A filepath fence signals a new outer file block — stop here.
+            # The bare ``` that triggered this check was the outer closer.
+            if "/" in label or ("." in label and not label.split()[0].isalpha()):
+                return False
+            # Language label (```python, ```yaml …) — track as inner fence
             depth += 1
         elif stripped == "```":
             if depth > 0:
@@ -103,6 +112,51 @@ def strip_outer_md_fence(text: str) -> str:
         return text  # no closing fence
 
     return "\n".join(lines[first_idx + 1 : last_idx]).strip()
+
+
+_MD_FENCE_RE = re.compile(r"^(`{3,})\s*(markdown|md)\s*$")
+
+
+def unwrap_markdown_fences(text: str) -> str:
+    """Unwrap top-level ```markdown / ```md fences inline.
+
+    LLMs sometimes place plan content inside a ````markdown`` fence alongside
+    other blocks (e.g. a ````yaml`` verify section).  The content of these
+    fences **is** markdown and must be rendered normally, not as ``<pre>``.
+
+    This scans top-level fences only (no nesting awareness needed because
+    a ````markdown`` fence never legitimately appears inside another fence).
+    """
+    if not text:
+        return text
+
+    trailing_nl = text.endswith("\n")
+    lines = text.split("\n")
+    # split("\n") on "a\n" gives ["a", ""] — drop the sentinel empty string
+    if trailing_nl and lines and lines[-1] == "":
+        lines.pop()
+    result: list[str] = []
+    i = 0
+    while i < len(lines):
+        m = _MD_FENCE_RE.match(lines[i].strip())
+        if m:
+            backticks = m.group(1)
+            close_re = re.compile(rf"^{re.escape(backticks)}\s*$")
+            # Find closing fence
+            j = i + 1
+            while j < len(lines):
+                if close_re.match(lines[j].strip()):
+                    break
+                j += 1
+            if j < len(lines):
+                # Unwrap: emit inner lines without the fence delimiters
+                result.extend(lines[i + 1 : j])
+                i = j + 1
+                continue
+        result.append(lines[i])
+        i += 1
+
+    return "\n".join(result) + ("\n" if trailing_nl else "")
 
 
 class _TrackingLLMAdapter(BaseLLMAdapter):
@@ -273,7 +327,11 @@ class BasePhase(ABC):
         parts.append(f"# LANGUAGE\n\n{self._lang_instruction()}")
 
         # OS environment — so LLM generates compatible commands
-        parts.append(f"# ENVIRONMENT\n\n{self._os_info()}")
+        env_info = self._os_info()
+        exec_env_desc = self.config.execution_env.describe_for_llm()
+        if exec_env_desc:
+            env_info += f"\n\n## Execution environment\n{exec_env_desc}"
+        parts.append(f"# ENVIRONMENT\n\n{env_info}")
 
         constitution = self.artifacts.read_constitution()
         if constitution:
@@ -525,57 +583,67 @@ class BasePhase(ABC):
     def _parse_file_blocks(content: str) -> dict[str, str]:
         """Parse LLM output into {filepath: content} dict.
 
-        Expects format::
+        Primary format (preferred)::
+
+            --- FILE: path/to/file.ext ---
+            content here — any content is safe, no escaping needed
+            --- END FILE ---
+
+        Legacy format (backward compatibility with old conversations)::
 
             ```path/to/file.ext
-            content here (may contain nested code fences)
+            content
             ```
 
-        Handles nested code fences: both labeled (e.g. ``\u0060\u0060\u0060python``)
-        and bare (``\u0060\u0060\u0060``) inner blocks are tracked so the first
-        inner ``\u0060\u0060\u0060`` is not mistaken for the outer closing fence.
+        Both formats can coexist in a single response.
         """
         files: dict[str, str] = {}
         lines = content.splitlines()
         i = 0
         while i < len(lines):
-            line = lines[i]
-            if line.startswith("```") and not line.strip() == "```":
-                fence = line.strip()[3:].strip()
-                # Ignore language-only fences like ```python, ```typescript
+            stripped = lines[i].strip()
+
+            # ── Primary format: --- FILE: path --- ──
+            if stripped.startswith("--- FILE:") and stripped.endswith("---"):
+                filepath = stripped[9:-3].strip()
+                if filepath:
+                    file_lines: list[str] = []
+                    i += 1
+                    while i < len(lines):
+                        if lines[i].strip() == "--- END FILE ---":
+                            break
+                        file_lines.append(lines[i])
+                        i += 1
+                    files[filepath] = "\n".join(file_lines)
+
+            # ── Legacy format: ```path/to/file.ext ──
+            elif stripped.startswith("```") and stripped != "```":
+                fence = stripped[3:].strip()
                 if "/" in fence or "." in fence:
                     filepath = fence
-                    file_lines: list[str] = []
+                    file_lines = []
                     i += 1
                     inner_fence = False
                     while i < len(lines):
-                        stripped = lines[i].strip()
+                        s = lines[i].strip()
                         if inner_fence:
-                            # Inside an inner code fence — wait for its close
                             file_lines.append(lines[i])
-                            if stripped == "```":
+                            if s == "```":
                                 inner_fence = False
-                        elif stripped.startswith("```") and len(stripped) > 3:
-                            # Labeled inner fence opener (```python, ```yaml …)
+                        elif s.startswith("```") and len(s) > 3:
+                            label = s[3:].strip()
+                            if "/" in label or ("." in label and not label.split()[0].isalpha()):
+                                i -= 1
+                                break
                             inner_fence = True
                             file_lines.append(lines[i])
-                        elif stripped == "```":
-                            # Bare ``` when not inside inner fence.
-                            # Determine whether this opens an inner bare block
-                            # or closes the outer file block.
-                            # Heuristic: look ahead for a matching bare ```
-                            # that would close this inner block, skipping over
-                            # any labeled fence pairs encountered on the way.
-                            if _has_inner_close_ahead(lines, i + 1):
-                                inner_fence = True
-                                file_lines.append(lines[i])
-                            else:
-                                # No matching close ahead — this is outer close
-                                break
+                        elif s == "```":
+                            break
                         else:
                             file_lines.append(lines[i])
                         i += 1
                     files[filepath] = "\n".join(file_lines)
+
             i += 1
         return files
 

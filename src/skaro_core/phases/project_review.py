@@ -26,12 +26,32 @@ class ProjectReviewPhase(CommandRunnerMixin, BasePhase):
     async def run(self, task: str | None = None, **kwargs: Any) -> PhaseResult:
         checklist = await asyncio.to_thread(self._run_structural_checks)
 
+        # Stream checklist results
+        await self._emit("── Structural Checks ──\n")
+        for item in checklist:
+            mark = "✓" if item["passed"] else "✗"
+            await self._emit(f"  {mark} {item['label']}  ({item.get('detail', '')})\n")
+        await self._emit("\n")
+
         global_commands = [
             {"name": vc.name, "command": vc.command}
             for vc in self.config.verify_commands
             if vc.command.strip()
         ]
-        global_results = await self._run_commands(global_commands)
+
+        if global_commands:
+            await self._emit("── Global Verify Commands ──\n")
+            global_results = []
+            for cmd_def in global_commands:
+                if not cmd_def.get("command", "").strip():
+                    continue
+                await self._emit(f"\n$ {cmd_def['command']}\n")
+                result = await self._execute_command(cmd_def["name"], cmd_def["command"])
+                global_results.append(result)
+                mark = "✓" if result["success"] else "✗"
+                await self._emit(f"  {mark} exit code {result['exit_code']}\n")
+        else:
+            global_results = []
 
         checklist_ok = all(item["passed"] for item in checklist)
         cmds_ok = all(cmd["success"] for cmd in global_results)

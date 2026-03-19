@@ -6,7 +6,6 @@
 	import { Play, AlertTriangle, Trash2, ChevronUp, ChevronDown, Cpu } from 'lucide-svelte';
 	import LogPane from './LogPane.svelte';
 	import ErrorPane from './ErrorPane.svelte';
-	import KittIndicator from '$lib/ui/KittIndicator.svelte';
 
 	const TAB_ROLES = {
 		constitution: null,
@@ -188,7 +187,7 @@
 		<button class="bp-tab" class:active={activePane === 'run'} onclick={() => switchPane('run')}>
 			<Play size={12} /> {$t('panel.run')}
 			{#if $llmActive}
-				<KittIndicator cells={8} speed={900} />
+				<span class="pulse-dot"></span>
 			{:else}
 				<span class="count">{$logEntries.length}</span>
 			{/if}
@@ -365,6 +364,20 @@
 	.icon-btn:hover {
 		background: var(--sf2);
 		color: var(--tx);
+	}
+
+	.pulse-dot {
+		width: 0.5rem;
+		height: 0.5rem;
+		border-radius: 50%;
+		background: var(--ac2);
+		flex-shrink: 0;
+		animation: pulse-glow 1.5s ease-in-out infinite;
+	}
+
+	@keyframes pulse-glow {
+		0%, 100% { opacity: 0.4; transform: scale(0.85); }
+		50%      { opacity: 1;   transform: scale(1.1);  }
 	}
 
 	.panel-content {

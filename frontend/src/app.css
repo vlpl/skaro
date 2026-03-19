@@ -1,9 +1,44 @@
 /* ═══════════════════════════════════════════════
+   Manrope Font
+   ═══════════════════════════════════════════════ */
+@font-face {
+	font-family: 'Manrope';
+	src: url('/fonts/Manrope-Regular.ttf') format('truetype');
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Manrope';
+	src: url('/fonts/Manrope-Medium.ttf') format('truetype');
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Manrope';
+	src: url('/fonts/Manrope-SemiBold.ttf') format('truetype');
+	font-weight: 600;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Manrope';
+	src: url('/fonts/Manrope-Bold.ttf') format('truetype');
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+}
+
+/* ═══════════════════════════════════════════════
    Skaro Theme — Global Variables
    ═══════════════════════════════════════════════ */
 :root {
-	--bg: #262626;
-	--bg2: #1e1e1e;
+	--bg: #212121;
+	--bg2: #1a1a1a;
 	--bg3: #313335;
 	--sf: #3c3f41;
 	--sf2: #45494a;
@@ -29,7 +64,7 @@
 	--r: .6rem;
 	--r2: .4rem;
 	--font-ui: 'JetBrains Mono', 'Consolas', 'Menlo', 'Monaco', monospace;
-	--font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+	--font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 }
 
 /* ═══════════════════════════════════════════════
@@ -176,7 +211,7 @@ table td {
 	background: var(--sf);
 	color: var(--tx);
 	cursor: pointer;
-	font-size: 0.9375rem;
+	font-size: 0.8rem;
 	font-family: inherit;
 	transition: 0.12s;
 	font-weight: 500;

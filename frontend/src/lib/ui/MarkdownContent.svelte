@@ -104,11 +104,22 @@
 	}
 
 	.md-content :global(code) {
-		background: none;
-		padding: 0;
-		border-radius: 0;
-		font-size: 0.8125rem;
+        background: rgb(from var(--or) r g b / 0.05);
+        border-radius: var(--r2);
+        padding: .08rem .2rem .1rem .2rem;
+        color: var(--or);
+        font-size: 1rem;
+        border: solid 1px rgb(from var(--or) r g b / 0.25);
 	}
+
+    .md-content :global(pre > code) {
+        background: none;
+        border-radius: 0;
+        padding: inherit;
+        color: inherit;
+        font-size: inherit;
+        border: none;
+    }
 
 	.md-content :global(.copy-btn) {
 		position: absolute;

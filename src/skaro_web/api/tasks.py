@@ -324,7 +324,21 @@ async def run_tests(
     from skaro_core.phases.tests import TestsPhase
 
     phase = TestsPhase(project_root=project_root)
-    result = await phase.run(task=name)
+
+    # Wire up streaming: reuse the same llm:start/chunk/complete events
+    # so the BottomPanel shows test output identically to LLM output.
+    await ws.broadcast({"event": "llm:start", "phase": "tests"})
+
+    async def _on_chunk(text: str) -> None:
+        await ws.broadcast({"event": "llm:chunk", "text": text})
+
+    phase.on_output_chunk = _on_chunk
+
+    try:
+        result = await phase.run(task=name)
+    finally:
+        await ws.broadcast({"event": "llm:complete", "phase": "tests"})
+
     await ws.broadcast({
         "event": "phase:completed" if result.success else "phase:error",
         "task": name, "phase": "tests",
@@ -464,26 +478,51 @@ async def fix_from_issues(
     task_dir = am.find_task_dir(name)
     verify_commands = TestsPhase.load_task_commands_static(task_dir)
 
+    # Load execution environment config
+    from skaro_core.config import load_config
+    config = load_config(project_root)
+    exec_env = config.execution_env
+
     # Detect environment hint from config / project structure
     import platform
     env_parts = [f"OS: {platform.system()} {platform.release()}"]
-    docker_compose = project_root / "docker-compose.yml"
-    dockerfile = project_root / "Dockerfile"
-    if docker_compose.exists() or dockerfile.exists():
-        env_parts.append("Docker project detected (Dockerfile/docker-compose.yml present)")
+    if exec_env.mode == "docker" and exec_env.docker_service:
+        env_parts.append(
+            f"Docker mode: commands run inside container "
+            f"(service: {exec_env.docker_service})"
+        )
+    else:
+        docker_compose = project_root / "docker-compose.yml"
+        dockerfile = project_root / "Dockerfile"
+        if docker_compose.exists() or dockerfile.exists():
+            env_parts.append("Docker project detected (Dockerfile/docker-compose.yml present)")
     env_parts.append(f"Project root: {project_root}")
     environment_hint = "; ".join(env_parts)
+
+    # Path mapping hint for LLM
+    path_mapping = ""
+    docker_workdir = ""
+    if exec_env.mode == "docker" and exec_env.workdir:
+        docker_workdir = exec_env.workdir
+        path_mapping = (
+            f"Container path `{exec_env.workdir}/` "
+            f"maps to project files on host. "
+            f"Paths in error output starting with `{exec_env.workdir}/` "
+            f"correspond to files shown in the source context."
+        )
 
     # Build prompt with full context
     message = TestsPhase.build_fix_prompt(
         selected,
         verify_commands=verify_commands,
         environment_hint=environment_hint,
+        path_mapping=path_mapping,
     )
 
     # Auto-scope: extract file paths from error output
     auto_paths = await asyncio.to_thread(
         TestsPhase.extract_file_paths, selected, project_root,
+        docker_workdir=docker_workdir,
     )
     # Merge with user-provided scope (user paths take priority)
     all_scope = list(dict.fromkeys(list(payload.scope_paths) + auto_paths))
