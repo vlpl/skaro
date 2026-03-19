@@ -56,7 +56,7 @@
 
 	<!-- Mode selector -->
 	<div class="form-field">
-		<label>{$t('settings.env_mode')}</label>
+		<span class="field-label">{$t('settings.env_mode')}</span>
 		<div class="mode-tabs">
 			<button class="tab" class:active={mode === 'host'} onclick={() => mode = 'host'}>
 				<Monitor size={14} />
@@ -195,7 +195,8 @@
 		margin-top: 0;
 	}
 
-	.form-field label {
+	.form-field label,
+	.form-field .field-label {
 		display: block;
 		font-size: 0.6875rem;
 		color: var(--dm);

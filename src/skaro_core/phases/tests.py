@@ -45,11 +45,30 @@ class TestsPhase(CommandRunnerMixin, BasePhase):
         # ── 1. Structural checklist ─────────────────
         checklist = await asyncio.to_thread(self._run_structural_checks, task, plan)
 
+        # Stream checklist results
+        await self._emit("── Structural Checks ──\n")
+        for item in checklist:
+            mark = "✓" if item["passed"] else "✗"
+            await self._emit(f"  {mark} {item['label']}  ({item.get('detail', '')})\n")
+        await self._emit("\n")
+
         # ── 2. Collect task-specific commands ────────
         task_commands = self._load_task_commands(task)
 
         # ── 3. Run task commands ────────────────────
-        task_results = await self._run_commands(task_commands)
+        if task_commands:
+            await self._emit("── Verify Commands ──\n")
+            task_results = []
+            for cmd_def in task_commands:
+                if not cmd_def.get("command", "").strip():
+                    continue
+                await self._emit(f"\n$ {cmd_def['command']}\n")
+                result = await self._execute_command(cmd_def["name"], cmd_def["command"])
+                task_results.append(result)
+                mark = "✓" if result["success"] else "✗"
+                await self._emit(f"  {mark} exit code {result['exit_code']}\n")
+        else:
+            task_results = []
 
         # ── 4. Determine overall result ─────────────
         checklist_ok = all(item["passed"] for item in checklist)

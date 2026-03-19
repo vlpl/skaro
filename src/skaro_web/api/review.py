@@ -25,7 +25,21 @@ async def run_review_tests(
     from skaro_core.phases.project_review import ProjectReviewPhase
 
     phase = ProjectReviewPhase(project_root=project_root)
-    result = await phase.run()
+
+    # Wire up streaming: reuse llm:start/chunk/complete events
+    # so the BottomPanel shows review test output identically to LLM output.
+    await ws.broadcast({"event": "llm:start", "phase": "review"})
+
+    async def _on_chunk(text: str) -> None:
+        await ws.broadcast({"event": "llm:chunk", "text": text})
+
+    phase.on_output_chunk = _on_chunk
+
+    try:
+        result = await phase.run()
+    finally:
+        await ws.broadcast({"event": "llm:complete", "phase": "review"})
+
     await ws.broadcast({"event": "review:completed"})
     return {"success": result.success, "message": result.message, "data": result.data}
 

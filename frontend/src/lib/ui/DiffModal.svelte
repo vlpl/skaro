@@ -149,7 +149,7 @@
 		font-family: var(--font-ui);
 	}
 
-	.diff-row { line-height: 1.45; }
+	.diff-row { line-height: 1; }
 	.diff-ctx { background: transparent; }
 	.diff-add { background: rgba(106, 135, 89, .15); }
 	.diff-del { background: rgba(244, 71, 71, .12); }

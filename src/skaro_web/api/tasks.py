@@ -324,7 +324,21 @@ async def run_tests(
     from skaro_core.phases.tests import TestsPhase
 
     phase = TestsPhase(project_root=project_root)
-    result = await phase.run(task=name)
+
+    # Wire up streaming: reuse the same llm:start/chunk/complete events
+    # so the BottomPanel shows test output identically to LLM output.
+    await ws.broadcast({"event": "llm:start", "phase": "tests"})
+
+    async def _on_chunk(text: str) -> None:
+        await ws.broadcast({"event": "llm:chunk", "text": text})
+
+    phase.on_output_chunk = _on_chunk
+
+    try:
+        result = await phase.run(task=name)
+    finally:
+        await ws.broadcast({"event": "llm:complete", "phase": "tests"})
+
     await ws.broadcast({
         "event": "phase:completed" if result.success else "phase:error",
         "task": name, "phase": "tests",
