@@ -12,12 +12,35 @@ Results are saved to analytics-report.md in the task directory.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from skaro_core.llm.base import LLMMessage
 from skaro_core.phases.base import BasePhase, PhaseResult, strip_outer_md_fence
 
 ANALYTICS_FILENAME = "analytics-report.md"
+
+
+# ── Constitution populate helper ─────────────────────
+
+async def _populate_constitution(
+    self,
+    prompt: str,
+    context: str,
+    requirements: list[dict],
+) -> PhaseResult:
+    """Populate Constitution from requirements via LLM."""
+    if not prompt:
+        return PhaseResult(success=False, message="Prompt template not found")
+    
+    messages = self._build_messages(f"{prompt}\n\n{context}")
+    response = await self._stream_collect(messages)
+    
+    return PhaseResult(
+        success=True,
+        message=f"Constitution updated from {len(requirements)} requirements",
+        data={'constitution': response.strip(), 'requirements_count': len(requirements)},
+    )
 
 
 class AnalyticsPhase(BasePhase):

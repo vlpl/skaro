@@ -20,6 +20,7 @@
 	let approving = $state(false);
 	let applying = $state(false);
 	let generatingAdrs = $state(false);
+	let generatingFromReqs = $state(false);
 	let reviewResult = $state('');
 	let proposedArchitecture = $state('');
 	let activeTab = $state('document');
@@ -157,6 +158,21 @@
 		generatingAdrs = false;
 	}
 
+	async function generateArchitectureFromRequirements() {
+		generatingFromReqs = true;
+		addLog($t('arch.generating_from_requirements'));
+		try {
+			const result = await api.generateArchitectureFromRequirements();
+			if (result.success) {
+				addLog(result.message || $t('arch.generated_from_requirements_done'));
+				invalidate('architecture', 'status');
+				status.set(await api.getStatus());
+				await load();
+			} else { addError(result.message, 'generateArchFromReqs'); }
+		} catch (e) { addError(e.message, 'generateArchFromReqs'); }
+		generatingFromReqs = false;
+	}
+
 	async function acceptProposed() {
 		if (!proposedArchitecture) return;
 		accepting = true;
@@ -263,6 +279,10 @@
 		<div class="alert alert-info"><Info size={14} /> {$t('arch.empty')}</div>
 		<p class="arch-hint">{$t('arch.generate_hint')}</p>
 		<div class="btn-group">
+			<button class="btn" onclick={generateArchitectureFromRequirements} disabled={generatingFromReqs}>
+				{#if generatingFromReqs}<Loader2 size={14} class="spin" />{:else}<Sparkles size={14} />{/if}
+				{$t('arch.generate_from_requirements')}
+			</button>
 			<button class="btn btn-primary" onclick={openChat}>
 				<MessageSquare size={14} /> {$t('arch.generate_with_ai')}
 			</button>
@@ -273,6 +293,12 @@
 
 	{:else if data.architecture_reviewed}
 		<div class="alert alert-success"><CheckCircle size={14} /> {$t('arch.approved')}</div>
+		<div class="btn-group" style="margin-top: 1rem;">
+			<button class="btn" onclick={generateArchitectureFromRequirements} disabled={generatingFromReqs}>
+				{#if generatingFromReqs}<Loader2 size={14} class="spin" />{:else}<Sparkles size={14} />{/if}
+				{$t('arch.generate_from_requirements')}
+			</button>
+		</div>
 		<ArchActions
 			architectureReviewed={true}
 			hasDevplan={$status?.has_devplan}
@@ -284,6 +310,12 @@
 
 	{:else}
 		<div class="alert alert-info">{$t('arch.has_arch')}</div>
+		<div class="btn-group" style="margin-top: 1rem;">
+			<button class="btn" onclick={generateArchitectureFromRequirements} disabled={generatingFromReqs}>
+				{#if generatingFromReqs}<Loader2 size={14} class="spin" />{:else}<Sparkles size={14} />{/if}
+				{$t('arch.generate_from_requirements')}
+			</button>
+		</div>
 		<ArchActions
 			architectureReviewed={false}
 			hasReviewResult={!!reviewResult}

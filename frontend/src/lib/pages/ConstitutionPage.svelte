@@ -5,7 +5,7 @@
 	import { addLog, addError } from '$lib/stores/logStore.js';
 	import { cachedFetch, invalidate } from '$lib/api/cache.js';
 	import { status } from '$lib/stores/statusStore.js';
-	import { FileText, AlertTriangle, CheckCircle, XCircle, Loader2, Pencil } from 'lucide-svelte';
+	import { FileText, AlertTriangle, CheckCircle, XCircle, Loader2, Pencil, Sparkles } from 'lucide-svelte';
 	import MarkdownContent from '$lib/ui/MarkdownContent.svelte';
 	import MdEditor from '$lib/ui/md-editor/MdEditor.svelte';
 	import TemplatePicker from '$lib/pages/constitution/TemplatePicker.svelte';
@@ -17,6 +17,7 @@
 	let showEditor = $state(false);
 	let editorContent = $state('');
 	let selectedPresetId = $state(/** @type {string|null} */ (null));
+	let populatingFromReqs = $state(false);
 
 	onMount(() => { load(); });
 
@@ -63,6 +64,22 @@
 		editorContent = data?.content || '';
 		showEditor = true;
 	}
+
+	async function populateFromRequirements() {
+		populatingFromReqs = true;
+		addLog($t('const.populating_from_reqs'));
+		try {
+			const result = await api.populateConstitutionFromRequirements();
+			addLog(result.message || $t('const.populate_from_reqs_done'));
+			invalidate('constitution', 'status');
+			status.set(await api.getStatus());
+			await load();
+		} catch (e) {
+			addError(e.message, 'populateConstitution');
+			error = e.message;
+		}
+		populatingFromReqs = false;
+	}
 </script>
 
 <div class="main-header">
@@ -94,6 +111,10 @@
 					{$t('const.validate')}
 				</button>
 			{/if}
+			<button class="btn" onclick={populateFromRequirements} disabled={populatingFromReqs}>
+				{#if populatingFromReqs}<Loader2 size={14} class="spin" />{:else}<Sparkles size={14} />{/if}
+				{$t('const.populate_from_requirements')}
+			</button>
 			<button class="btn" onclick={openEditor}>
 				<Pencil size={14} /> {$t('editor.edit')}
 			</button>

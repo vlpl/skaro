@@ -147,6 +147,33 @@ class ArchitecturePhase(BasePhase):
         if path.exists():
             path.unlink()
 
+    # ── Generate from requirements ─────────────────────
+
+    async def _generate_architecture(
+        self,
+        prompt: str,
+        context: str,
+        requirements: list[dict],
+    ) -> PhaseResult:
+        """Generate architecture from requirements via LLM."""
+        if not prompt:
+            return PhaseResult(success=False, message="Prompt template not found")
+
+        messages = self._build_messages(f"{prompt}\n\n{context}")
+        response_content = await self._stream_collect(messages)
+
+        # Extract architecture markdown
+        arch_content = response_content.strip()
+
+        return PhaseResult(
+            success=True,
+            message=f"Architecture generated from {len(requirements)} requirements",
+            data={
+                "architecture": arch_content,
+                "requirements_count": len(requirements),
+            },
+        )
+
     def _save_chat_conversation(self, conversation: list[dict]) -> None:
         path = self._chat_conv_path()
         path.parent.mkdir(parents=True, exist_ok=True)

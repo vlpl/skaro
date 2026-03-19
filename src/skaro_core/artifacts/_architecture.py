@@ -100,9 +100,35 @@ class ArchitectureMixin:
             return sorted(arch_dir.glob("adr-*.md"))
         return []
 
-    @staticmethod
-    def parse_adr_metadata(content: str, filename: str = "") -> dict[str, str]:
+    def parse_adr_metadata(self, content: str, filename: str = "") -> dict[str, str]:
+        """Parse ADR metadata, preferring JSON metadata file if exists."""
+        import json
+        
         meta: dict[str, str] = {"status": "proposed", "date": "", "title": ""}
+        
+        # Extract number from filename
+        if filename:
+            m = re.match(r"adr-(\d+)", filename)
+            if m:
+                num = int(m.group(1))
+                meta["number"] = num
+                
+                # Try to load metadata from JSON file first (like requirements)
+                json_path = self.skaro / "architecture" / f"adr-{num:03d}.json"
+                if json_path.exists():
+                    try:
+                        json_meta = json.loads(json_path.read_text(encoding="utf-8"))
+                        meta["status"] = json_meta.get("status", "proposed")
+                        meta["date"] = json_meta.get("date", "")
+                        # Title still from MD
+                        m = re.search(r"^#\s+ADR-\d+:\s*(.+)", content, re.MULTILINE)
+                        if m:
+                            meta["title"] = m.group(1).strip()
+                        return meta
+                    except (json.JSONDecodeError, OSError):
+                        pass  # Fallback to MD parsing
+        
+        # Fallback: parse from MD content
         m = re.search(r"^#\s+ADR-\d+:\s*(.+)", content, re.MULTILINE)
         if m:
             meta["title"] = m.group(1).strip()
@@ -112,10 +138,7 @@ class ArchitectureMixin:
         m = re.search(r"\*\*Date:\*\*\s*(\S+)", content)
         if m:
             meta["date"] = m.group(1).strip()
-        if filename:
-            m = re.match(r"adr-(\d+)", filename)
-            if m:
-                meta["number"] = int(m.group(1))
+        
         return meta
 
     def read_adr_index(self) -> str:
@@ -141,25 +164,50 @@ class ArchitectureMixin:
             return ""
         return "# ARCHITECTURE DECISIONS (ADR)\n\n" + "\n".join(entries)
 
-    def update_adr_status(self, number: int, new_status: str) -> Path | None:
+    def update_adr_status(self, number: int, new_status: str) -> dict | None:
+        """Update ADR status via separate JSON metadata file (like requirements)."""
+        import json
+        from datetime import date as _date
+        
         valid = {"proposed", "accepted", "deprecated", "superseded"}
         if new_status not in valid:
             raise ValueError(
                 f"Invalid ADR status: {new_status}. Must be one of {valid}"
             )
-        for adr_path in self.list_adrs():
-            m = re.match(r"adr-(\d+)", adr_path.name)
+        
+        # Find ADR file by number (handles names like adr-001-description.md)
+        adr_path = None
+        for p in self.list_adrs():
+            m = re.match(r"adr-(\d+)", p.name)
             if m and int(m.group(1)) == number:
-                content = adr_path.read_text(encoding="utf-8")
-                updated = re.sub(
-                    r"(\*\*Status:\*\*)\s*\S+",
-                    rf"\1 {new_status}",
-                    content,
-                    count=1,
-                )
-                adr_path.write_text(updated, encoding="utf-8")
-                return adr_path
-        return None
+                adr_path = p
+                break
+        
+        if adr_path is None:
+            return None
+        
+        # metadata in separate JSON file (same number pattern)
+        meta_file = self.skaro / "architecture" / f"adr-{number:03d}.json"
+        meta = {}
+        if meta_file.exists():
+            try:
+                meta = json.loads(meta_file.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                pass
+        
+        # Update status and date
+        meta["status"] = new_status
+        meta["date"] = _date.today().isoformat()
+        
+        # Write metadata
+        meta_file.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+        
+        return {
+            "number": number,
+            "status": new_status,
+            "date": meta["date"],
+            "path": str(adr_path),
+        }
 
     def write_adr_content(self, number: int, content: str) -> Path | None:
         """Overwrite the full content of an ADR by its number."""

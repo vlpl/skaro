@@ -5,7 +5,7 @@
 	import { status } from '$lib/stores/statusStore.js';
 	import { addLog, addError } from '$lib/stores/logStore.js';
 	import { cachedFetch, invalidate } from '$lib/api/cache.js';
-	import { FolderOpen, AlertTriangle, Loader2, Plus, ChevronLeft, Pencil, Sparkles, ClipboardList } from 'lucide-svelte';
+	import { FolderOpen, AlertTriangle, Loader2, Plus, ChevronLeft, ChevronRight, Pencil, Sparkles, ClipboardList } from 'lucide-svelte';
 	import MarkdownContent from '$lib/ui/MarkdownContent.svelte';
 	import MdEditor from '$lib/ui/md-editor/MdEditor.svelte';
 
@@ -30,6 +30,20 @@
 
 	/** @type {number | null} ADR number whose status is being changed */
 	let changingStatus = $state(null);
+	
+	// Navigation between ADRs (like Requirements)
+	let currentAdrIndex = $derived(
+		selectedAdr ? (data?.adrs || []).findIndex(a => a.number === selectedAdr.number) : -1
+	);
+	let hasPrevAdr = $derived(currentAdrIndex > 0);
+	let hasNextAdr = $derived(currentAdrIndex >= 0 && currentAdrIndex < (data?.adrs || []).length - 1);
+
+	function goToPrevAdr() {
+		if (hasPrevAdr) selectedAdr = (data?.adrs || [])[currentAdrIndex - 1];
+	}
+	function goToNextAdr() {
+		if (hasNextAdr) selectedAdr = (data?.adrs || [])[currentAdrIndex + 1];
+	}
 
 	let hasArchitecture = $derived($status?.has_architecture && $status?.architecture_reviewed);
 
@@ -80,8 +94,14 @@
 			const result = await api.updateAdrStatus(adr.number, newStatus);
 			if (result.success) {
 				addLog($t('log.adr_status_changed', { n: adr.number, status: newStatus }));
-				invalidate('adrs', 'status');
-				await load();
+				// Use returned adrs list directly (like requirements)
+				if (result.adrs) {
+					data = { adrs: result.adrs };
+					invalidate('adrs');
+				} else {
+					invalidate('adrs', 'status');
+					await load();
+				}
 				if (selectedAdr?.number === adr.number) {
 					selectedAdr = data?.adrs?.find(a => a.number === adr.number) || null;
 				}
@@ -143,6 +163,14 @@
 	</div>
 
 	<div class="status-actions">
+		<button class="btn-status" onclick={goToPrevAdr} disabled={!hasPrevAdr}>
+			<ChevronLeft size={14} /> Предыдущее
+		</button>
+		<span class="adr-counter">{currentAdrIndex + 1} / {(data?.adrs || []).length}</span>
+		<button class="btn-status" onclick={goToNextAdr} disabled={!hasNextAdr}>
+			Следующее <ChevronRight size={14} />
+		</button>
+		<span class="status-separator"></span>
 		{#each STATUSES.filter(s => s !== selectedAdr.status) as s}
 			<button
 				class="btn-status"
@@ -390,6 +418,23 @@
 		display: flex;
 		gap: 0.375rem;
 		margin-bottom: 0.75rem;
+		flex-wrap: wrap;
+		align-items: center;
+	}
+
+	.adr-counter {
+		font-size: 0.8125rem;
+		color: var(--dm);
+		font-family: var(--font-ui);
+		white-space: nowrap;
+		padding: 0 0.25rem;
+	}
+
+	.status-separator {
+		width: 1px;
+		height: 1.25rem;
+		background: var(--bd);
+		margin: 0 0.25rem;
 	}
 
 	.btn-status {

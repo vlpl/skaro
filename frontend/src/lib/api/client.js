@@ -112,11 +112,13 @@ export const api = {
 	// Constitution
 	getConstitution: (signal) => get('/api/constitution', signal),
 	validateConstitution: (signal) => post('/api/constitution/validate', {}, signal),
+	populateConstitutionFromRequirements: (signal) => post('/api/constitution/populate-from-requirements', {}, signal),
 	getConstitutionPresets: (signal) => get('/api/constitution/presets', signal),
 	getConstitutionPreset: (/** @type {string} */ presetId, signal) => get(`/api/constitution/presets/${presetId}`, signal),
 
 	// Architecture
 	getArchitecture: (signal) => get('/api/architecture', signal),
+	generateArchitectureFromRequirements: (signal) => post('/api/architecture/generate-from-requirements', {}, signal),
 	runArchReview: (/** @type {string} */ draft, /** @type {string} */ domain, signal) =>
 		post('/api/architecture/review', { architecture_draft: draft, domain_description: domain }, signal),
 	acceptArchitecture: (/** @type {string} */ proposed_architecture, signal) =>

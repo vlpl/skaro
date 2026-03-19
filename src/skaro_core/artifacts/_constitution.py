@@ -45,34 +45,76 @@ class ConstitutionMixin:
         return self.constitution_path
 
     def validate_constitution(self) -> dict[str, bool]:
+        """Validate Constitution sections (bilingual support)."""
         content = self.read_constitution().lower()
         return {
             "stack": any(
-                w in content for w in ["## стек", "## stack", "язык:", "language:"]
+                w in content
+                for w in [
+                    "## stack",
+                    "стек",
+                    "technology stack",
+                    "технологический стек",
+                    "language:",
+                    "язык:",
+                ]
             ),
             "coding_standards": any(
                 w in content
-                for w in ["## стандарты", "## coding", "линтер", "linter", "formatter"]
+                for w in [
+                    "## coding",
+                    "стандарты",
+                    "coding standards",
+                    "стандарты разработки",
+                    "linter",
+                    "линтер",
+                    "formatter",
+                    "форматтер",
+                ]
             ),
             "testing": any(
                 w in content
-                for w in ["## тестирование", "## testing", "покрытие", "coverage"]
+                for w in [
+                    "## testing",
+                    "тестирование",
+                    "coverage",
+                    "покрытие",
+                    "test requirements",
+                    "требования к тестированию",
+                ]
             ),
             "constraints": any(
                 w in content
-                for w in ["## ограничения", "## constraints", "инфра", "infra"]
+                for w in [
+                    "## constraints",
+                    "ограничения",
+                    "constraints and infrastructure",
+                    "инфраструктура",
+                    "infra",
+                    "инфра",
+                ]
             ),
             "security": any(
                 w in content
-                for w in ["## безопасность", "## security", "авторизация", "authorization"]
+                for w in [
+                    "## security",
+                    "безопасность",
+                    "authorization",
+                    "авторизация",
+                    "authentication",
+                    "аутентификация",
+                ]
             ),
             "llm_rules": any(
                 w in content
                 for w in [
-                    "## правила работы с llm",
-                    "## llm rules",
-                    "заглушк",
+                    "## llm",
+                    "llm rules",
+                    "правила работы с llm",
+                    "llm usage",
+                    "использование llm",
                     "stub",
+                    "заглушк",
                     "ai_notes",
                 ]
             ),

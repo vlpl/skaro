@@ -75,11 +75,17 @@ export default {
 	'const.invalid': 'Some sections are missing or incomplete:',
 	'const.content': 'Content',
 	'const.preset_hint': 'Choose a framework template to pre-fill the constitution, then customize it for your project.',
+	'const.populate_from_requirements': 'Populate from Requirements',
+	'const.populating_from_reqs': 'Populating constitution from requirements...',
+	'const.populate_from_reqs_done': 'Constitution populated from requirements',
 
 	// Architecture
 	'arch.title': 'Architecture',
 	'arch.subtitle': 'System architecture, invariants, and Architecture Decision Records.',
 	'arch.empty': 'Architecture has not been created yet. This is the next step after the constitution.',
+	'arch.generate_from_requirements': 'Generate from Requirements',
+	'arch.generating_from_requirements': 'Generating architecture from requirements...',
+	'arch.generated_from_requirements_done': 'Architecture generated from requirements',
 	'arch.step1': 'Open {file} in your IDE',
 	'arch.step2': 'Describe your architecture: components, data storage, communication, infrastructure',
 	'arch.step3': 'Come back and click Review Architecture',

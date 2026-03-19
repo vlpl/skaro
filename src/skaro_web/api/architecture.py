@@ -6,7 +6,9 @@ import json
 import re as _re
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+
+from skaro_core.phases.base import strip_outer_md_fence
 
 from skaro_core.artifacts import ArtifactManager
 from skaro_web.api.deps import broadcast, get_am, get_project_root, get_ws_manager, llm_phase, ConnectionManager
@@ -48,6 +50,63 @@ def _extract_invariants(text: str) -> str:
         body = text[body_start:]
 
     return body.strip()
+
+
+@router.post("/generate-from-requirements")
+async def generate_architecture_from_requirements(
+    request: Request,
+    am: ArtifactManager = Depends(get_am),
+    project_root: Path = Depends(get_project_root),
+    ws: ConnectionManager = Depends(get_ws_manager),
+):
+    """Generate Architecture from accepted requirements."""
+    from skaro_core.phases.architecture import ArchitecturePhase
+
+    # Чтение требований
+    requirements_dir = am.skaro / "requirements"
+    if not requirements_dir.exists():
+        return {"success": False, "message": "Requirements directory not found"}
+
+    accepted_reqs = []
+    for jf in requirements_dir.glob("*.json"):
+        try:
+            meta = json.loads(jf.read_text(encoding='utf-8'))
+            if meta.get('status') == 'accepted':
+                rid = jf.stem
+                mdf = jf.with_suffix('.md')
+                content = mdf.read_text(encoding='utf-8') if mdf.exists() else ''
+                tm = _re.match(r'^#\s*(.+?)$', content, _re.MULTILINE)
+                accepted_reqs.append({
+                    'id': rid, 'type': meta.get('type', 'FR'),
+                    'title': tm.group(1).strip() if tm else rid,
+                    'content': content.strip()
+                })
+        except Exception:
+            continue
+
+    if not accepted_reqs:
+        return {"success": False, "message": "No accepted requirements found"}
+
+    # Запускаем через llm_phase для красивого вывода
+    phase = ArchitecturePhase(project_root=project_root)
+    async with llm_phase(ws, "architecture-generate", phase, request=request):
+        # Готовим контекст
+        constitution = am.read_constitution() or "Конституция не заполнена"
+        req_text = "\n\n".join([f"### {r['id']}: {r['title']}\n{r['content']}" for r in accepted_reqs])
+        prompt_path = Path(__file__).parent.parent.parent / "skaro_core" / "prompts" / "architecture-generate.md"
+        prompt = prompt_path.read_text(encoding="utf-8") if prompt_path.exists() else ""
+        context = f"## Требования\n\n{req_text}\n\n## Конституция\n\n{constitution}"
+
+        # Вызов LLM через фазу (с выводом прогресса)
+        result = await phase._generate_architecture(prompt, context, accepted_reqs)
+
+    await ws.broadcast({"event": "phase:completed", "phase": "architecture"})
+
+    if result.success:
+        am.write_architecture(result.data.get('architecture', ''))
+        await broadcast(request, {"event": "artifact:updated", "artifact": "architecture"})
+        return {"success": True, "message": f"Generated from {len(accepted_reqs)} requirements"}
+    return {"success": False, "message": result.message}
 
 
 @router.get("")
@@ -302,14 +361,33 @@ async def update_adr_status(
     payload: AdrStatusBody,
     am: ArtifactManager = Depends(get_am),
 ):
+    """Update ADR status via JSON metadata file (like requirements)."""
     try:
-        path = am.update_adr_status(number, payload.status)
+        result = am.update_adr_status(number, payload.status)
     except ValueError as e:
         return {"success": False, "message": str(e)}
-    if path is None:
+    if result is None:
         return {"success": False, "message": f"ADR-{number:03d} not found"}
+    
     await broadcast(request, {"event": "artifact:updated", "artifact": f"ADR-{number:03d}"})
-    return {"success": True, "path": str(path)}
+    
+    # Return updated ADR list (like requirements)
+    adrs = []
+    for adr_path in am.list_adrs():
+        content = adr_path.read_text(encoding="utf-8")
+        meta = am.parse_adr_metadata(content, adr_path.name)
+        adrs.append({
+            "number": meta.get("number", 0),
+            "title": meta.get("title", adr_path.stem),
+            "status": meta.get("status", "proposed"),
+            "date": meta.get("date", ""),
+        })
+    
+    return {
+        "success": True,
+        "message": f"ADR-{number:03d} status changed to {payload.status}",
+        "adrs": adrs,
+    }
 
 
 @router.put("/adrs/{number}")
